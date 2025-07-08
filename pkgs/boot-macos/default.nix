@@ -35,7 +35,7 @@ stdenvNoCC.mkDerivation {
     cp ${desktop}/share/applications/* $out/share/applications
   '';
 
-  meta = with lib; {
-    platforms = with platforms; linux;
+  meta = {
+    platforms = [ "aarch64-linux" ];
   };
 }

@@ -10,7 +10,7 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "easyeda-pro";
+  pname = "easyeda-pro";
   version = "2.2.39.2";
 
   src = fetchurl {
@@ -56,10 +56,10 @@ stdenv.mkDerivation rec {
       --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath buildInputs}:$out/opt/easyeda-pro
   '';
 
-  meta = with lib; {
+  meta = {
     description = "EasyEDA Pro Edition";
     homepage = "https://easyeda.com/";
-    license = licenses.unfree;
-    platforms = [ "x86_64-linux" ];
+    license = lib.licenses.unfree;
+    platforms = lib.platforms.linux;
   };
 }

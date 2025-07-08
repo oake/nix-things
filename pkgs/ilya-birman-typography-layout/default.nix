@@ -1,4 +1,8 @@
-{ stdenvNoCC, fetchzip }:
+{
+  stdenvNoCC,
+  fetchzip,
+  lib,
+}:
 
 stdenvNoCC.mkDerivation rec {
   pname = "ilya-birman-typography-layout";
@@ -29,4 +33,9 @@ stdenvNoCC.mkDerivation rec {
       name = "Russian";
     }
   ];
+
+  meta = {
+    description = "Ilya Birman Typography Layout for macOS";
+    platforms = lib.platforms.darwin;
+  };
 }

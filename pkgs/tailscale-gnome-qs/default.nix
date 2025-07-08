@@ -1,6 +1,7 @@
 {
   stdenv,
   fetchFromGitHub,
+  lib,
 }:
 let
   pname = "tailscale-gnome-qs";
@@ -29,5 +30,9 @@ stdenv.mkDerivation {
   passthru = {
     extensionPortalSlug = pname;
     extensionUuid = uuid;
+  };
+
+  meta = {
+    platforms = lib.platforms.linux;
   };
 }

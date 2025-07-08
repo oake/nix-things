@@ -47,5 +47,6 @@ stdenvNoCC.mkDerivation rec {
     homepage = "https://github.com/ful1e5/BreezeX_Cursor";
     license = lib.licenses.gpl3;
     maintainers = with lib.maintainers; [ pagedMov ];
+    platforms = lib.platforms.linux;
   };
 }

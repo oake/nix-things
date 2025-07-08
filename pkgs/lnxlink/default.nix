@@ -357,15 +357,16 @@ python3Packages.buildPythonApplication rec {
     ]
     ++ extraPythonDeps;
 
-  meta = with lib; {
+  meta = {
     description = "Effortlessly manage your Linux machine using MQTT.";
     homepage = "https://github.com/bkbilly/lnxlink";
-    license = licenses.mit;
+    license = lib.licenses.mit;
     mainProgram = "lnxlink";
     addons = {
       allNames = allAddonNames;
       inherit getMeta;
       # XXX variant handling?
     };
+    platforms = lib.platforms.linux;
   };
 }

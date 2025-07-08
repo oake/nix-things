@@ -1,6 +1,7 @@
 {
   stdenv,
   fetchFromGitHub,
+  lib,
 }:
 
 stdenv.mkDerivation {
@@ -22,4 +23,8 @@ stdenv.mkDerivation {
     mkdir -p $out/share/gnome-shell/extensions/swap-finger-gestures-3-4@icedman.github.com/
     cp -R ./* $out/share/gnome-shell/extensions/swap-finger-gestures-3-4@icedman.github.com/.
   '';
+
+  meta = {
+    platforms = lib.platforms.linux;
+  };
 }

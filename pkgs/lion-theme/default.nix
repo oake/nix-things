@@ -1,6 +1,7 @@
 {
   stdenv,
   fetchFromGitHub,
+  lib,
 }:
 
 stdenv.mkDerivation {
@@ -18,4 +19,8 @@ stdenv.mkDerivation {
     mkdir -p $out/share/themes/Lion
     cp -r * $out/share/themes/Lion/.
   '';
+
+  meta = {
+    platforms = lib.platforms.linux;
+  };
 }

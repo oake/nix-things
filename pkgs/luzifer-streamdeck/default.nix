@@ -33,5 +33,6 @@ buildGoModule {
     description = "streamdeck is a library and management tool to use an Elgato StreamDeck on a Linux system written in Go.";
     homepage = "https://github.com/Luzifer/streamdeck";
     license = lib.licenses.asl20;
+    platforms = lib.platforms.linux;
   };
 }

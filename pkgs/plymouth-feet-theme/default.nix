@@ -1,6 +1,5 @@
 {
   stdenvNoCC,
-  fetchgit,
   lib,
 }:
 
