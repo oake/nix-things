@@ -1,10 +1,15 @@
 {
-  stdenvNoCC,
-  lib,
+  pkgs,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    stdenvNoCC
+    lib
+    ;
+in
 stdenvNoCC.mkDerivation {
-  pname = "plymouth-feet-theme";
+  inherit pname;
   version = "1.0.0";
 
   dontUnpack = true;

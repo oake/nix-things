@@ -1,11 +1,16 @@
 {
-  stdenvNoCC,
-  fetchgit,
-  lib,
+  pkgs,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    stdenvNoCC
+    fetchgit
+    lib
+    ;
+in
 stdenvNoCC.mkDerivation {
-  pname = "plymouth-1975-theme";
+  inherit pname;
   version = "1.0.0";
 
   src = fetchgit {

@@ -1,12 +1,17 @@
 {
-  stdenvNoCC,
-  fetchzip,
-  lib,
+  pkgs,
+  pname,
 }:
-
-stdenvNoCC.mkDerivation rec {
-  pname = "ilya-birman-typography-layout";
+let
+  inherit (pkgs)
+    stdenvNoCC
+    fetchzip
+    lib
+    ;
   version = "3.9";
+in
+stdenvNoCC.mkDerivation {
+  inherit pname version;
 
   src = fetchzip {
     url = "https://ilyabirman.ru/typography-layout/download/ilya-birman-typolayout-${version}-mac.zip";

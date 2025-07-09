@@ -1,11 +1,16 @@
 {
-  stdenv,
-  fetchFromGitHub,
-  lib,
+  pkgs,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    stdenv
+    fetchFromGitHub
+    lib
+    ;
+in
 stdenv.mkDerivation {
-  pname = "swap-finger-gestures-3-4";
+  inherit pname;
   version = "4";
   phases = [
     "unpackPhase"

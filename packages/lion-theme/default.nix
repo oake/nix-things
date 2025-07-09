@@ -1,11 +1,16 @@
 {
-  stdenv,
-  fetchFromGitHub,
-  lib,
+  pkgs,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    stdenv
+    fetchFromGitHub
+    lib
+    ;
+in
 stdenv.mkDerivation {
-  pname = "lion-theme";
+  inherit pname;
   version = "1.2";
 
   src = fetchFromGitHub {

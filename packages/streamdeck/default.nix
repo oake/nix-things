@@ -1,26 +1,31 @@
 {
   pkgs,
-  buildGoModule,
-  lib,
-  fetchFromGitHub,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    lib
+    buildGoModule
+    fetchFromGitHub
+    udev
+    ;
+in
 buildGoModule {
-  pname = "luzifer-streamdeck";
+  inherit pname;
   version = "1.7.2";
 
-  src =
-    fetchFromGitHub {
-      owner = "Luzifer";
-      repo = "streamdeck";
-      rev = "122bd63cc98ec304788e655f377f71e21e5117d5";
-      sha256 = "sha256-qagu83Cz/cQyRAAKBCffWVyOq+pF7GtcfWIgVwiK76Q=";
-    }
-    + "/cmd/streamdeck";
+  src = fetchFromGitHub {
+    owner = "Luzifer";
+    repo = pname;
+    rev = "122bd63cc98ec304788e655f377f71e21e5117d5";
+    sha256 = "sha256-qagu83Cz/cQyRAAKBCffWVyOq+pF7GtcfWIgVwiK76Q=";
+  };
 
-  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  sourceRoot = "source/cmd/streamdeck";
 
-  buildInputs = with pkgs; [
+  vendorHash = lib.fakeHash;
+
+  buildInputs = [
     udev
   ];
 
@@ -34,6 +39,5 @@ buildGoModule {
     homepage = "https://github.com/Luzifer/streamdeck";
     license = lib.licenses.asl20;
     platforms = lib.platforms.linux;
-    broken = true; # doesn't build
   };
 }

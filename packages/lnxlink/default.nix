@@ -1,35 +1,26 @@
 {
-  lib,
-  python3Packages,
-  fetchPypi,
-  wrapGAppsHook4,
+  pkgs,
+  pname,
   addons ? [ ],
   addAddonsRuntimeDeps ? true,
-  # used by a bunch of addons
-  coreutils,
-  gnugrep,
-  gawk,
-  psmisc,
-  gnused,
-  # optional, used only when specified via `addons` argument
-  bluez,
-  xrandr,
-  # ,  gsettings # XXX where?
-  xset,
-  # , zenity # not in 24.05, only in master
-  vlc,
-  pulseaudio,
-  xdotool,
-  wirelesstools,
-}@inputs:
+}:
 let
+  inherit (pkgs)
+    lib
+    python3Packages
+    fetchPypi
+    wrapGAppsHook4
+    ;
+
+  version = "2025.6.0";
+
   minimalPythonDeps = [ "dasbus" ];
-  minimalRuntimeDeps = [
-    "coreutils"
-    "gnugrep"
-    "gawk"
-    "psmisc"
-    "gnused"
+  minimalRuntimeDeps = with pkgs; [
+    coreutils
+    gnugrep
+    gawk
+    psmisc
+    gnused
   ];
 
   haveMinimalPythonDeps =
@@ -298,16 +289,15 @@ let
 
   enabledAddons = defaultAddons ++ addons;
   runtimeDepsNames = builtins.concatMap addonRuntimeDeps enabledAddons;
-  runtimeDepsAddons = builtins.map (lib.flip builtins.getAttr inputs) runtimeDepsNames;
+  runtimeDepsAddons = builtins.map (lib.flip builtins.getAttr pkgs) runtimeDepsNames;
   runtimeDeps = minimalRuntimeDeps ++ lib.optionals addAddonsRuntimeDeps runtimeDepsAddons;
   runtimePath = "${lib.makeBinPath runtimeDeps}:${lib.makeSearchPathOutput "bin" "sbin" runtimeDeps}";
 
   pythonDepsNames = builtins.concatMap addonPythonDeps enabledAddons;
   extraPythonDeps = builtins.map (lib.flip builtins.getAttr python3Packages) pythonDepsNames;
 in
-python3Packages.buildPythonApplication rec {
-  pname = "lnxlink";
-  version = "2025.6.0";
+python3Packages.buildPythonApplication {
+  inherit pname version;
   pyproject = true;
 
   src = fetchPypi {

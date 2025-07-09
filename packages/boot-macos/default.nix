@@ -1,13 +1,17 @@
 {
-  stdenvNoCC,
-  writeShellApplication,
-  makeDesktopItem,
-  lib,
-  asahi-bless,
+  pkgs,
+  pname,
 }:
 let
+  inherit (pkgs)
+    writeShellApplication
+    makeDesktopItem
+    stdenvNoCC
+    lib
+    asahi-bless
+    ;
   script = writeShellApplication {
-    name = "boot-macos";
+    name = pname;
     text = builtins.readFile ./boot-macos.sh;
 
     runtimeInputs = [
@@ -25,7 +29,8 @@ let
   };
 in
 stdenvNoCC.mkDerivation {
-  name = "boot-macos";
+  inherit pname;
+  version = "0.0.1";
 
   dontUnpack = true;
   installPhase = ''
