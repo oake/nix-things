@@ -21,7 +21,7 @@ buildGoModule {
     sha256 = "sha256-qagu83Cz/cQyRAAKBCffWVyOq+pF7GtcfWIgVwiK76Q=";
   };
 
-  sourceRoot = "source/cmd/streamdeck";
+  modRoot = "./cmd/streamdeck";
 
   vendorHash = lib.fakeHash;
 
