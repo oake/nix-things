@@ -29,11 +29,6 @@ buildGoModule {
     udev
   ];
 
-  postPatch = ''
-    substituteInPlace go.mod \
-      --replace-fail "replace github.com/Luzifer/streamdeck => ../../" ""
-  '';
-
   meta = {
     description = "streamdeck is a library and management tool to use an Elgato StreamDeck on a Linux system written in Go.";
     homepage = "https://github.com/Luzifer/streamdeck";
