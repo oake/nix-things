@@ -1,9 +1,16 @@
 {
+  inputs,
+}:
+{
   lib,
   config,
   ...
 }:
 {
+  imports = [
+    inputs.lanzaboote.nixosModules.lanzaboote
+  ];
+
   options.boot.secureboot.enable = lib.mkEnableOption "Secure Boot";
 
   config = lib.mkIf config.boot.secureboot.enable {
