@@ -4,6 +4,12 @@
   inputs,
   ...
 }:
+let
+  unstable = import inputs.nix-unstable {
+    system = pkgs.system;
+    config.allowUnfree = true;
+  };
+in
 {
   # allow unfree pkgs
   nixpkgs.config.allowUnfree = true;
@@ -16,6 +22,7 @@
 
   # comfy extra args
   _module.args = with pkgs.stdenv.hostPlatform; {
+    inherit unstable;
     onlyArm = lib.optionals isAarch64;
     onlyX86 = lib.optionals isx86_64;
   };
