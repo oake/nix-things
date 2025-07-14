@@ -121,22 +121,6 @@
         "type": "github"
       }
     },
-    "nix-unstable": {
-      "locked": {
-        "lastModified": 1751984180,
-        "narHash": "sha256-LwWRsENAZJKUdD3SpLluwDmdXY9F45ZEgCb0X+xgOL0=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "9807714d6944a957c2e036f84b0ff8caf9930bc0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1751943650,
@@ -200,7 +184,6 @@
       "inputs": {
         "blueprint": "blueprint",
         "lanzaboote": "lanzaboote",
-        "nix-unstable": "nix-unstable",
         "nixpkgs": "nixpkgs"
       }
     },

@@ -1,7 +1,10 @@
 {
+  flake,
+  inputs,
+}:
+{
   pkgs,
   lib,
-  inputs,
   ...
 }:
 let
@@ -35,6 +38,6 @@ in
 
   # overlays
   nixpkgs.overlays = [
-    inputs.nix-things.overlays.default
+    flake.overlays.default
   ];
 }
