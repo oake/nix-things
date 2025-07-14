@@ -29,20 +29,20 @@
       };
 
       mkModules =
-        modules: extra:
+        modules:
         modules
         // {
           default = {
-            imports = lib.attrsets.attrValues modules ++ extra;
+            imports = lib.attrsets.attrValues modules;
           };
         };
     in
     {
       inherit (blueprint) checks packages;
 
-      commonModules = mkModules blueprint.modules.common [ ];
-      nixosModules = mkModules blueprint.nixosModules [ ];
-      darwinModules = mkModules blueprint.darwinModules [ ];
+      commonModules = mkModules blueprint.modules.common;
+      nixosModules = mkModules blueprint.nixosModules;
+      darwinModules = mkModules blueprint.darwinModules;
 
       overlays.default = import ./overlay.nix;
     };
