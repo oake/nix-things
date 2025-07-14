@@ -1,14 +1,18 @@
 {
-  lib,
-  rustPlatform,
-  fetchFromGitHub,
-  libinput,
-  xdotool,
-  makeWrapper,
+  pkgs,
+  pname,
 }:
-
+let
+  inherit (pkgs)
+    rustPlatform
+    fetchFromGitHub
+    makeWrapper
+    lib
+    xdotool
+    ;
+in
 rustPlatform.buildRustPackage {
-  pname = "libinput-three-finger-drag";
+  inherit pname;
   version = "0.1-unstable-2024-06-17";
 
   src = fetchFromGitHub {
@@ -25,7 +29,7 @@ rustPlatform.buildRustPackage {
 
   postFixup = ''
     wrapProgram "$out/bin/libinput-three-finger-drag" \
-      --prefix PATH : "${lib.makeBinPath [ libinput ]}"
+      --prefix PATH : "${lib.makeBinPath [ pkgs.libinput ]}"
   '';
 
   meta = {

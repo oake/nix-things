@@ -1,15 +1,20 @@
 {
-  stdenvNoCC,
-  fetchFromGitHub,
-  fetchzip,
-  clickgen,
-  nix-update-script,
-  lib,
+  pkgs,
+  pname,
 }:
-
-stdenvNoCC.mkDerivation rec {
-  pname = "breezex-cursor";
+let
+  inherit (pkgs)
+    stdenvNoCC
+    fetchFromGitHub
+    fetchzip
+    clickgen
+    nix-update-script
+    lib
+    ;
   version = "2.0.1";
+in
+stdenvNoCC.mkDerivation {
+  inherit pname version;
 
   src = fetchFromGitHub {
     owner = "ful1e5";

@@ -1,10 +1,14 @@
 {
-  stdenv,
-  fetchFromGitHub,
-  lib,
+  pkgs,
+  pname,
 }:
 let
-  pname = "tailscale-gnome-qs";
+  inherit (pkgs)
+    stdenv
+    fetchFromGitHub
+    lib
+    ;
+
   uuid = "tailscale@joaophi.github.com";
 in
 stdenv.mkDerivation {

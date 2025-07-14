@@ -1,17 +1,38 @@
 {
-  stdenv,
-  fetchurl,
-  unzip,
-  autoPatchelfHook,
   pkgs,
-  makeWrapper,
-  lib,
-  wrapGAppsHook,
+  pname,
 }:
-
-stdenv.mkDerivation rec {
-  pname = "easyeda-pro";
+let
+  inherit (pkgs)
+    stdenv
+    fetchurl
+    unzip
+    autoPatchelfHook
+    makeWrapper
+    wrapGAppsHook
+    glib
+    nss
+    libdrm
+    mesa
+    alsa-lib
+    libGL
+    udev
+    lib
+    ;
   version = "2.2.39.2";
+
+  buildInputs = [
+    glib
+    nss
+    libdrm
+    mesa
+    alsa-lib
+    libGL
+    udev
+  ];
+in
+stdenv.mkDerivation {
+  inherit pname version;
 
   src = fetchurl {
     url = "https://image.easyeda.com/files/easyeda-pro-linux-x64-${version}.zip";
@@ -25,15 +46,7 @@ stdenv.mkDerivation rec {
     wrapGAppsHook
   ];
 
-  buildInputs = with pkgs; [
-    glib
-    nss
-    libdrm
-    mesa
-    alsa-lib
-    libGL
-    udev
-  ];
+  inherit buildInputs;
 
   unpackPhase = ''
     unzip $src -d .
