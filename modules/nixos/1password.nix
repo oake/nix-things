@@ -13,16 +13,17 @@
     };
   };
 
-  config =
+  config = lib.mkMerge [
     {
+      programs._1password.package = unstable._1password-cli;
       programs._1password-gui = {
         package = unstable._1password-gui;
         polkitPolicyOwners = [ config.me.username ];
       };
     }
-    // lib.mkIf config.programs._1password-gui.autoStart {
-      environment.etc."xdg/autostart/1password.desktop".source = (
-        config.programs._1password-gui.package + "/share/applications/1password.desktop"
-      );
-    };
+    (lib.mkIf config.programs._1password-gui.autoStart {
+      environment.etc."xdg/autostart/1password.desktop".source =
+        "${config.programs._1password-gui.package}/share/applications/1password.desktop";
+    })
+  ];
 }
