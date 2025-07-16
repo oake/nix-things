@@ -34,5 +34,6 @@ buildGoModule {
     homepage = "https://github.com/Luzifer/streamdeck";
     license = lib.licenses.asl20;
     platforms = lib.platforms.linux;
+    mainProgram = "streamdeck";
   };
 }
