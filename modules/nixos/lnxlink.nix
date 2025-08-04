@@ -120,7 +120,8 @@ let
       name = nm;
       value = {
         enable = lib.mkEnableOption "Enable addon ${nm}";
-      } // maybeVariantOption;
+      }
+      // maybeVariantOption;
     };
 
   enabledAddonsNames = builtins.filter (x: cfg.addons."${x}".enable) allAddons;

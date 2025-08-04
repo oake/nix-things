@@ -87,7 +87,8 @@ in
             args = [
               "--config=${configFile}"
               "--log-level=${cfg.logLevel}"
-            ] ++ lib.optional (cfg.productId != null) "--product-id=${cfg.productId}";
+            ]
+            ++ lib.optional (cfg.productId != null) "--product-id=${cfg.productId}";
           in
           "${lib.getExe cfg.package} ${lib.escapeShellArgs args}";
       };
