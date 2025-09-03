@@ -38,7 +38,7 @@
         };
     in
     {
-      inherit (blueprint) checks packages;
+      inherit (blueprint) checks packages lib;
 
       commonModules = mkModules blueprint.modules.common;
       lxcModules = mkModules blueprint.modules.lxc;
