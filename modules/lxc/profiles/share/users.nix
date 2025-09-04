@@ -10,7 +10,7 @@ let
     inherit (user) uid;
     isNormalUser = true;
     home = "${cfg.homes}/${name}";
-    openssh.authorizedKeys.keys = lib.mkIf (user.sshKey != null) [ user.sshKey ];
+    openssh.authorizedKeys.keys = user.sshKeys;
     hashedPasswordFile = config.age.secrets."${cfg.secretsDomain}/${name}-unix-password".path;
     extraGroups = map (share: "share-${share}") user.allowedExtraShares;
   };
@@ -24,22 +24,32 @@ in
     users = lib.mkOption {
       default = { };
       type = lib.types.attrsOf (
-        lib.types.submodule {
-          options = {
-            sshKey = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
+        lib.types.submodule (
+          {
+            config,
+            ...
+          }:
+          {
+            options = {
+              sshKey = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+              };
+              sshKeys = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = lib.optionals (config.sshKey != null) [ config.sshKey ];
+              };
+              uid = lib.mkOption {
+                type = lib.types.nullOr lib.types.int;
+                default = null;
+              };
+              allowedExtraShares = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+              };
             };
-            uid = lib.mkOption {
-              type = lib.types.nullOr lib.types.int;
-              default = null;
-            };
-            allowedExtraShares = lib.mkOption {
-              type = lib.types.listOf lib.types.str;
-              default = [ ];
-            };
-          };
-        }
+          }
+        )
       );
     };
   };
