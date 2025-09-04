@@ -58,9 +58,10 @@ in
       {
         inherit hostname;
         profiles.system = {
-          sshUser = "root";
+          user = "root";
           path = inputs.deploy-rs.lib.${cfg.pkgs.system}.activate.nixos cfg;
-        };
+        }
+        // lib.optionalAttrs (lib.strings.hasPrefix "lxc-" name) { sshUser = "root"; };
       }
     ) cfgs;
 }
