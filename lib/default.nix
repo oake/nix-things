@@ -61,7 +61,14 @@ in
           user = "root";
           path = inputs.deploy-rs.lib.${cfg.pkgs.system}.activate.nixos cfg;
         }
-        // lib.optionalAttrs (lib.strings.hasPrefix "lxc-" name) { sshUser = "root"; };
+        // (
+          if (lib.strings.hasPrefix "lxc-" name) then
+            { sshUser = "root"; }
+          else
+            {
+              interactiveSudo = true;
+            }
+        );
       }
     ) cfgs;
 }
