@@ -27,8 +27,16 @@
 
 # use deploy-rs to update an existing host
 [group('deployment')]
-@deploy host build='local': _add
-    nix run github:serokell/deploy-rs#deploy-rs -- .#{{host}} -s {{ if build == "remote" { "--remote-build" } else { "" } }}
+deploy host build='auto': _add
+  #!/usr/bin/env sh
+  set -euo pipefail
+  DEPLOY_ARG=--remote-build
+  case "{{build}}" in
+    local)  DEPLOY_ARG= ;;
+    remote) ;;
+    *)      case "{{host}}" in lxc-*) DEPLOY_ARG= ;; esac ;;
+  esac
+  nix run github:serokell/deploy-rs#deploy-rs -- .#{{host}} -s ${DEPLOY_ARG}
 
 # create/edit agenix secret
 [group('secrets')]
