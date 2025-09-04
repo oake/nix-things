@@ -22,5 +22,11 @@
 
   age.identityPaths = [ "/nix-lxc/agenix_key" ];
 
+  # cut 300 MiB off the final closure lol
+  nixpkgs.flake = {
+    setNixPath = false;
+    setFlakeRegistry = false;
+  };
+
   nixpkgs.hostPlatform = "x86_64-linux";
 }
