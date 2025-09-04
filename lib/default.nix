@@ -44,6 +44,10 @@ in
       lib.recursiveUpdate acc { ${sys}."lxc-tarball-${name}" = c.config.system.build.tarball; }
     ) { } (builtins.attrNames withLxc);
 
+  mkDeployChecks = (
+    builtins.mapAttrs (system: packages: { inherit (packages) deploy-rs; }) inputs.deploy-rs.packages
+  );
+
   mkDeployNodes =
     lanDomain: cfgs:
     lib.mapAttrs (
