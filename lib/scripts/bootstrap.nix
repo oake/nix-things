@@ -1,5 +1,4 @@
 {
-  flake,
   pkgs,
   nixosConfigurations,
   ...
@@ -125,7 +124,9 @@ let
 
       CURRENT_STEP=4
       wipe
-      ${flake.agenix-rekey.${pkgs.system}.rekey}/bin/agenix-rekey -a
+      git add --all
+      echo "Rekeying..."
+      nix run .#agenix-rekey.${pkgs.system}.rekey -- -a
 
       CURRENT_STEP=5
       wipe

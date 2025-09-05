@@ -73,7 +73,7 @@ in
     ) cfgs;
 
   mkBootstrapScripts =
-    nixosConfigurations: flake:
+    nixosConfigurations:
     lib.genAttrs
       [
         "aarch64-darwin"
@@ -90,7 +90,6 @@ in
             inputs
             nixosConfigurations
             pkgs
-            flake
             ;
         }
       );
