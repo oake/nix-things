@@ -1,7 +1,7 @@
 # generate a keypair, rekey all secrets
 [group('deployment')]
 @bootstrap host: _add
-  HOST={{host}} scripts/bootstrap.sh
+  nix run .#bootstrap-{{host}}
 
 # install with nixos-anywhere or LXC in PVE
 [group('deployment')]

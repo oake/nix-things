@@ -71,4 +71,27 @@ in
         );
       }
     ) cfgs;
+
+  mkBootstrapScripts =
+    nixosConfigurations: flake:
+    lib.genAttrs
+      [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ]
+      (
+        system:
+        let
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
+        in
+        (import ./scripts/bootstrap.nix) {
+          inherit
+            inputs
+            nixosConfigurations
+            pkgs
+            flake
+            ;
+        }
+      );
 }
