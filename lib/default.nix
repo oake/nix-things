@@ -57,7 +57,7 @@ in
       lib.recursiveUpdate acc { ${sys}."disko-${name}" = c.config.system.build.diskoScript; }
     ) { } (builtins.attrNames withDisko);
 
-  mkDeploy =
+  mkDeployNodes =
     lanDomain: cfgs:
     let
       deployPkgs = forAllSystems (
@@ -74,34 +74,28 @@ in
           ];
         }
       );
-      nodes = lib.mapAttrs (
-        name: cfg:
-        let
-          hostname = (lib.strings.removePrefix "lxc-" name) + "." + lanDomain;
-        in
-        {
-          inherit hostname;
-          profiles.system = {
-            user = "root";
-            path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
-          }
-          // (
-            if (lib.strings.hasPrefix "lxc-" name) then
-              { sshUser = "root"; }
-            else
-              {
-                interactiveSudo = true;
-              }
-          );
-        }
-      ) cfgs;
     in
-    {
-      inherit nodes;
-      checks = builtins.mapAttrs (
-        system: pkgs: pkgs.deploy-rs.lib.deployChecks { inherit nodes; }
-      ) deployPkgs;
-    };
+    lib.mapAttrs (
+      name: cfg:
+      let
+        hostname = (lib.strings.removePrefix "lxc-" name) + "." + lanDomain;
+      in
+      {
+        inherit hostname;
+        profiles.system = {
+          user = "root";
+          path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
+        }
+        // (
+          if (lib.strings.hasPrefix "lxc-" name) then
+            { sshUser = "root"; }
+          else
+            {
+              interactiveSudo = true;
+            }
+        );
+      }
+    ) cfgs;
 
   mkBootstrapScripts = mkPerHostScripts (import ./scripts/bootstrap.nix);
   mkLxcScripts =
