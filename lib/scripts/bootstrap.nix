@@ -5,9 +5,9 @@ let
   isLxc = config ? lxc;
   isImpermanence = config.environment ? persistence;
   pubkeyPath = config.age.rekey.hostPubkeyRelPath;
-  inherit (pkgs) coreutils openssh;
+  inherit (pkgs) openssh;
 in
-mkFlakeScript "bootstrap-${hostName}" [ coreutils openssh ] ''
+mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   CURRENT_STEP=1
   BOOTSTRAP_DIR=".bootstrap"
   SSHDIR="$BOOTSTRAP_DIR/${

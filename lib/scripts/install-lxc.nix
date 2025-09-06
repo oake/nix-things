@@ -3,13 +3,13 @@ let
   cfg = nixosConfiguration.config;
   inherit ((import ./helpers.nix) { inherit pkgs; }) mkFlakeScript;
 
-  inherit (pkgs) coreutils openssh gum;
+  inherit (pkgs) openssh gum;
   tarball = cfg.system.build.tarball + "/" + cfg.image.filePath;
   tarballName = cfg.image.fileName;
   pve = cfg.lxc.pve;
   shortName = pkgs.lib.removePrefix "lxc-" hostName;
 in
-mkFlakeScript "install-${hostName}" [ coreutils openssh gum ] ''
+mkFlakeScript "install-${hostName}" [ openssh gum ] ''
   function wipe() {
     clear
     echo "''${bold}Installing ${hostName}''${normal}"

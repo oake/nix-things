@@ -6,7 +6,7 @@
   mkFlakeScript =
     name: runtimeInputs: text:
     let
-      inherit (pkgs) coreutils;
+      inherit (pkgs) coreutils gitMinimal;
     in
     pkgs.writeShellApplication {
       inherit name;
@@ -14,7 +14,11 @@
         "SC2034" # <var> appears unused
         "SC2029" # stupid tip not letting me do ssh user@host "$cmd"
       ];
-      runtimeInputs = [ pkgs.gitMinimal ] ++ runtimeInputs;
+      runtimeInputs = [
+        coreutils
+        gitMinimal
+      ]
+      ++ runtimeInputs;
       text = ''
         bold=$(tput bold)
         normal=$(tput sgr0)
@@ -25,9 +29,9 @@
         function confirm() { read -r -p "$1 [Y/n] " r; case "$r" in [Nn]*) return 1;; *) return 0;; esac; }
         function abort() { echo "Aborted."; exit 0; }
 
-        USER_GIT_TOPLEVEL=$(${coreutils}/bin/realpath -e "$(git rev-parse --show-toplevel 2>/dev/null || pwd)") \
+        USER_GIT_TOPLEVEL=$(realpath -e "$(git rev-parse --show-toplevel 2>/dev/null || pwd)") \
           || die "Could not determine current working directory. Something went very wrong."
-        USER_FLAKE_DIR=$(${coreutils}/bin/realpath -e "$(pwd)") \
+        USER_FLAKE_DIR=$(realpath -e "$(pwd)") \
           || die "Could not determine current working directory. Something went very wrong."
 
         # Search from $(pwd) upwards to $USER_GIT_TOPLEVEL until we find a flake.nix
