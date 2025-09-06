@@ -38,7 +38,7 @@ deploy host build='auto': _add
     remote) ;;
     *)      case "{{host}}" in lxc-*) DEPLOY_ARG= ;; esac ;;
   esac
-  nix run github:serokell/deploy-rs#deploy-rs -- .#{{host}} -s ${DEPLOY_ARG}
+  nix run nixpkgs#deploy-rs -- .#{{host}} -s ${DEPLOY_ARG}
 
 # create/edit agenix secret
 [group('secrets')]

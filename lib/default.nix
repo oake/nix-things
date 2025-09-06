@@ -4,30 +4,33 @@
 }:
 let
   inherit (inputs.nixpkgs) lib;
+
+  supportedSystems = [
+    "x86_64-linux"
+    "aarch64-linux"
+    "aarch64-darwin"
+  ];
+
+  forAllSystems = lib.genAttrs supportedSystems;
+
   mkPerHostScripts =
     mkScript: nixosConfigurations:
-    lib.genAttrs
-      [
-        "aarch64-darwin"
-        "aarch64-linux"
-        "x86_64-linux"
-      ]
-      (
-        system:
+    forAllSystems (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      pkgs.lib.mapAttrs' (
+        name: config:
         let
-          pkgs = inputs.nixpkgs.legacyPackages.${system};
+          script = mkScript pkgs name config;
         in
-        pkgs.lib.mapAttrs' (
-          name: config:
-          let
-            script = mkScript pkgs name config;
-          in
-          {
-            name = script.name;
-            value = script;
-          }
-        ) nixosConfigurations
-      );
+        {
+          name = script.name;
+          value = script;
+        }
+      ) nixosConfigurations
+    );
 in
 {
   mkBtrfsMount = part: subvol: {
@@ -54,33 +57,51 @@ in
       lib.recursiveUpdate acc { ${sys}."disko-${name}" = c.config.system.build.diskoScript; }
     ) { } (builtins.attrNames withDisko);
 
-  mkDeployChecks = (
-    builtins.mapAttrs (system: packages: { inherit (packages) deploy-rs; }) inputs.deploy-rs.packages
-  );
-
-  mkDeployNodes =
+  mkDeploy =
     lanDomain: cfgs:
-    lib.mapAttrs (
-      name: cfg:
-      let
-        hostname = (lib.strings.removePrefix "lxc-" name) + "." + lanDomain;
-      in
-      {
-        inherit hostname;
-        profiles.system = {
-          user = "root";
-          path = inputs.deploy-rs.lib.${cfg.pkgs.system}.activate.nixos cfg;
+    let
+      deployPkgs = forAllSystems (
+        system:
+        import inputs.nixpkgs {
+          inherit system;
+          overlays = [
+            (self: super: {
+              deploy-rs = {
+                inherit ((inputs.deploy-rs.overlays.default self super).deploy-rs) lib;
+                inherit (super) deploy-rs;
+              };
+            })
+          ];
         }
-        // (
-          if (lib.strings.hasPrefix "lxc-" name) then
-            { sshUser = "root"; }
-          else
-            {
-              interactiveSudo = true;
-            }
-        );
-      }
-    ) cfgs;
+      );
+      nodes = lib.mapAttrs (
+        name: cfg:
+        let
+          hostname = (lib.strings.removePrefix "lxc-" name) + "." + lanDomain;
+        in
+        {
+          inherit hostname;
+          profiles.system = {
+            user = "root";
+            path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
+          }
+          // (
+            if (lib.strings.hasPrefix "lxc-" name) then
+              { sshUser = "root"; }
+            else
+              {
+                interactiveSudo = true;
+              }
+          );
+        }
+      ) cfgs;
+    in
+    {
+      inherit nodes;
+      checks = builtins.mapAttrs (
+        system: pkgs: pkgs.deploy-rs.lib.deployChecks { inherit nodes; }
+      ) deployPkgs;
+    };
 
   mkBootstrapScripts = mkPerHostScripts (import ./scripts/bootstrap.nix);
   mkLxcScripts =
