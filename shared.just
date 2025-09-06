@@ -13,7 +13,7 @@
   fi
 
 @_install-lxc host:
-  HOST={{host}} scripts/install-lxc.sh
+  nix run .#install-{{host}}
 
 @_install-anywhere host build:
   test -d .bootstrap/extra && [ "$(ls -A .bootstrap/extra)" ] \

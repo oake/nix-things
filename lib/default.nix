@@ -4,6 +4,30 @@
 }:
 let
   inherit (inputs.nixpkgs) lib;
+  mkPerHostScripts =
+    mkScript: nixosConfigurations:
+    lib.genAttrs
+      [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ]
+      (
+        system:
+        let
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
+        in
+        pkgs.lib.mapAttrs' (
+          name: config:
+          let
+            script = mkScript pkgs name config;
+          in
+          {
+            name = script.name;
+            value = script;
+          }
+        ) nixosConfigurations
+      );
 in
 {
   mkBtrfsMount = part: subvol: {
@@ -72,25 +96,11 @@ in
       }
     ) cfgs;
 
-  mkBootstrapScripts =
-    nixosConfigurations:
-    lib.genAttrs
-      [
-        "aarch64-darwin"
-        "aarch64-linux"
-        "x86_64-linux"
-      ]
-      (
-        system:
-        let
-          pkgs = inputs.nixpkgs.legacyPackages.${system};
-        in
-        (import ./scripts/bootstrap.nix) {
-          inherit
-            inputs
-            nixosConfigurations
-            pkgs
-            ;
-        }
-      );
+  mkBootstrapScripts = mkPerHostScripts (import ./scripts/bootstrap.nix);
+  mkLxcScripts =
+    cfgs:
+    let
+      withLxc = lib.filterAttrs (_: c: c.config ? lxc) cfgs;
+    in
+    mkPerHostScripts (import ./scripts/install-lxc.nix) withLxc;
 }

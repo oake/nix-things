@@ -10,6 +10,10 @@
     in
     pkgs.writeShellApplication {
       inherit name;
+      excludeShellChecks = [
+        "SC2034" # <var> appears unused
+        "SC2029" # stupid tip not letting me do ssh user@host "$cmd"
+      ];
       runtimeInputs = [ pkgs.git ] ++ runtimeInputs;
       text = ''
         bold=$(tput bold)
