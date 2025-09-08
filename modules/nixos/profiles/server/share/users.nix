@@ -4,7 +4,7 @@
   ...
 }:
 let
-  cfg = config.lxc.profiles.share;
+  cfg = config.profiles.server.share;
   mapShareUser = name: user: {
     inherit name;
     inherit (user) uid;
@@ -16,7 +16,7 @@ let
   };
 in
 {
-  options.lxc.profiles.share = {
+  options.profiles.server.share = {
     homes = lib.mkOption {
       type = lib.types.str;
       default = "/storage/share";

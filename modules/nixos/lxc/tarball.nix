@@ -79,7 +79,9 @@ let
   };
 in
 {
-  image.baseName = "vzdump-lxc-${short}-${config.system.configurationRevision}";
-  image.extension = lib.mkForce "tar.zst";
-  system.build.tarball = lib.mkForce tarball;
+  config = lib.mkIf config.lxc.enable {
+    image.baseName = "vzdump-lxc-${short}-${config.system.configurationRevision}";
+    image.extension = lib.mkForce "tar.zst";
+    system.build.tarball = lib.mkForce tarball;
+  };
 }
