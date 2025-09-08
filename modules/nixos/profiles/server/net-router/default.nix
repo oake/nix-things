@@ -4,8 +4,8 @@
   ...
 }:
 {
-  options.lxc.profiles.net-router = {
-    enable = lib.mkEnableOption "net-router profile";
+  options.profiles.server.net-router = {
+    enable = lib.mkEnableOption "net-router server profile";
     port = lib.mkOption {
       type = lib.types.port;
       example = lib.literalExpression "51820";
@@ -15,7 +15,9 @@
     };
   };
 
-  config = lib.mkIf config.lxc.profiles.net-router.enable {
+  config = lib.mkIf config.profiles.server.net-router.enable {
+    profiles.server.enable = lib.mkForce true;
+
     age.secrets.netbird-homelab = {
       owner = "netbird";
       group = "netbird";
@@ -27,7 +29,7 @@
       setupKeyFile = config.age.secrets.netbird-homelab.path;
     };
 
-    services.netbird.clients.default.port = lib.mkForce config.lxc.profiles.net-router.port;
+    services.netbird.clients.default.port = lib.mkForce config.profiles.server.net-router.port;
 
     boot.kernel.sysctl = {
       "net.ipv4.conf.all.forwarding" = true;

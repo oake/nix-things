@@ -6,6 +6,7 @@
 }:
 {
   options.lxc = {
+    enable = lib.mkEnableOption "Proxmox LXC Container";
     cores = lib.mkOption {
       type = lib.types.int;
       default = 4;

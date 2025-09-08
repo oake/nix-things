@@ -10,8 +10,8 @@ let
   '';
 in
 {
-  config = lib.mkIf config.lxc.profiles.share.enable {
-    users.users = lib.genAttrs (builtins.attrNames config.lxc.profiles.share.users) (name: {
+  config = lib.mkIf config.profiles.server.share.enable {
+    users.users = lib.genAttrs (builtins.attrNames config.profiles.server.share.users) (name: {
       shell = "${sftpShell}/bin/sftpgo-subsys";
     });
     services.openssh.sftpServerExecutable = "${sftpShell}/bin/sftpgo-subsys";

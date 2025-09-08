@@ -8,6 +8,7 @@
     email = lib.mkOption { type = lib.types.str; };
     sshKey = lib.mkOption { type = lib.types.str; };
     wifeKey = lib.mkOption { type = lib.types.str; };
+    deployKey = lib.mkOption { type = lib.types.str; };
     lanDomain = lib.mkOption { type = lib.types.str; };
   };
 }

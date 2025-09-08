@@ -12,10 +12,10 @@ let
     "spotlight" = true;
     "veto files" = "/._*/.DS_Store/";
   };
-  cfg = config.lxc.profiles.share;
+  cfg = config.profiles.server.share;
 in
 {
-  options.lxc.profiles.share = {
+  options.profiles.server.share = {
     serverString = lib.mkOption {
       type = lib.types.str;
       default = "share";

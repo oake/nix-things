@@ -58,7 +58,7 @@ in
     ) { } (builtins.attrNames withDisko);
 
   mkDeployNodes =
-    lanDomain: cfgs:
+    cfgs:
     let
       deployPkgs = forAllSystems (
         system:
@@ -74,34 +74,22 @@ in
           ];
         }
       );
+      deployCfgs = lib.filterAttrs (_: c: c.config.deploy.enable) cfgs;
     in
-    lib.mapAttrs (
-      name: cfg:
-      let
-        hostname = (lib.strings.removePrefix "lxc-" name) + "." + lanDomain;
-      in
-      {
-        inherit hostname;
-        profiles.system = {
-          user = "root";
-          path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
-        }
-        // (
-          if (lib.strings.hasPrefix "lxc-" name) then
-            { sshUser = "root"; }
-          else
-            {
-              interactiveSudo = true;
-            }
-        );
-      }
-    ) cfgs;
+    lib.mapAttrs (name: cfg: {
+      hostname = cfg.config.deploy.fqdn;
+      profiles.system = {
+        sshUser = "deploy";
+        user = "root";
+        path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
+      };
+    }) deployCfgs;
 
   mkBootstrapScripts = mkPerHostScripts (import ./scripts/bootstrap.nix);
   mkLxcScripts =
     cfgs:
     let
-      withLxc = lib.filterAttrs (_: c: c.config ? lxc) cfgs;
+      withLxc = lib.filterAttrs (_: c: c.config.lxc.enable) cfgs;
     in
     mkPerHostScripts (import ./scripts/install-lxc.nix) withLxc;
 }

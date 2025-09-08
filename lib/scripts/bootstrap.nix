@@ -2,7 +2,7 @@ pkgs: hostName: nixosConfig:
 let
   inherit ((import ./helpers.nix) { inherit pkgs; }) mkFlakeScript;
   config = nixosConfig.config;
-  isLxc = config ? lxc;
+  isLxc = config.lxc.enable;
   isImpermanence = config.environment ? persistence;
   pubkeyPath = config.age.rekey.hostPubkeyRelPath;
   inherit (pkgs) openssh;
