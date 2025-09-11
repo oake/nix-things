@@ -55,6 +55,10 @@ in
   };
 
   config = {
+    nix.extraOptions = lib.optionalString config.nix.distributedBuilds ''
+      builders-use-substitutes = true
+    '';
+
     nix.distributedBuilds = config.nix.buildMachines != [ ];
 
     nix.buildMachines = lib.mapAttrsToList (
