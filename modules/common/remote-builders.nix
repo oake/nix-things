@@ -38,18 +38,18 @@ in
   options.remoteBuilders = {
     auto = lib.mkEnableOption "required remote builders automatically";
     machines = lib.mapAttrs (name: machine: {
-      enable = lib.mkEnableOption "${machine.system} remote builder (${machine.hostname})" // {
+      enable = lib.mkEnableOption "${machine.system} remote builder (${machine.hostName})" // {
         default = config.remoteBuilders.auto && config.nixpkgs.hostPlatform.system != machine.system;
       };
       sshUser = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = config.me.username;
-        description = "The username to log in as on ${machine.hostname}.";
+        description = "The username to log in as on ${machine.hostName}.";
       };
       sshKey = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
-        description = "The path to the SSH private key with which to authenticate on ${machine.hostname}.";
+        description = "The path to the SSH private key with which to authenticate on ${machine.hostName}.";
       };
     }) availableMachines;
   };
