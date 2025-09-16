@@ -1,0 +1,11 @@
+--- "a/Ilya Birman Typography Layout.bundle/Contents/Resources/English \342\200\223 Ilya Birman Typography.keylayout"
++++ "b/Ilya Birman Typography Layout.bundle/Contents/Resources/English \342\200\223 Ilya Birman Typography.keylayout"
+@@ -97,7 +97,7 @@
+             <key code="47" output="."/>
+             <key code="48" output="&#x0009;"/>
+             <key code="49" action="5"/>
+-            <key code="50" output="\"/>
++            <key code="50" output="`"/>
+             <key code="51" output="&#x0008;"/>
+             <key code="52" output="&#x0003;"/>
+             <key code="53" output="&#x001B;"/>

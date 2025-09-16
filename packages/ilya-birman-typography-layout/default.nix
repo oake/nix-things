@@ -21,6 +21,7 @@ stdenvNoCC.mkDerivation {
 
   patches = [
     ./trim-names.patch
+    ./fix-backtick.patch
   ];
 
   installPhase = ''
