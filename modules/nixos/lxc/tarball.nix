@@ -11,6 +11,8 @@ let
 
   featuresStr = lib.concatStringsSep "," (map (f: "${f}=1") config.lxc.features);
 
+  tagsStr = lib.concatStringsSep ";" config.lxc.tags;
+
   mountsLines = lib.concatStringsSep "\n" (
     lib.imap0 (i: m: "mp${toString i}: ${m}") config.lxc.mounts
   );
@@ -40,6 +42,7 @@ let
     net0: name=eth0,bridge=${config.lxc.network},hwaddr=00:00:00:00:00:00,ip=dhcp,type=veth
     ostype: unmanaged
     onboot: ${if config.lxc.autoStart then "1" else "0"}
+    tags: ${tagsStr}
     rootfs: ${config.lxc.storageName}:unknown,size=${toString config.lxc.diskSize}G
     ${mountsLines}
     ${config.lxc.extraConfig}

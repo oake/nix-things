@@ -62,6 +62,11 @@
       default = true;
       description = "Whether to automatically start the container on boot";
     };
+    tags = lib.mkOption {
+      type = lib.types.listOf (lib.types.str);
+      default = [ ];
+      description = "List of tags to add to the container";
+    };
     pve = lib.mkOption {
       type = lib.types.submodule {
         options = {
@@ -87,5 +92,6 @@
   config = {
     lxc.mounts = [ "${config.lxc.pve.keypairPath},mp=/nix-lxc,ro=1" ];
     lxc.features = [ "nesting" ];
+    lxc.tags = [ "nix" ];
   };
 }
