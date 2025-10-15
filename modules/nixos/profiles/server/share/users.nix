@@ -8,6 +8,8 @@ let
   mapShareUser = name: user: {
     inherit name;
     inherit (user) uid;
+    group = name;
+    homeMode = "770";
     isNormalUser = true;
     home = "${cfg.homes}/${name}";
     openssh.authorizedKeys.keys = user.sshKeys;
@@ -55,10 +57,8 @@ in
   };
   config = lib.mkIf cfg.enable {
     users.groups =
-      lib.genAttrs (map (share: "share-${share}") (builtins.attrNames cfg.extraShares)) (share: { })
-      // {
-        users.gid = 100;
-      };
+      lib.genAttrs (map (share: "share-${share}") (builtins.attrNames cfg.extraShares)) (_: { })
+      // lib.genAttrs (builtins.attrNames cfg.users) (_: { });
 
     users.users = lib.mapAttrs (name: user: mapShareUser name user) cfg.users;
 
