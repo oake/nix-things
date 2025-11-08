@@ -1,9 +1,9 @@
-pkgs: hostName: nixosConfiguration:
+pkgs: targetPkgs: hostName: nixosConfiguration:
 let
   cfg = nixosConfiguration.config;
-  inherit ((import ./helpers.nix) { inherit pkgs; }) mkFlakeScript;
+  inherit ((import ./helpers.nix) { inherit pkgs targetPkgs; }) mkFlakeScript;
 
-  inherit (pkgs) openssh gum;
+  inherit (targetPkgs) openssh gum;
   tarball = cfg.system.build.tarball + "/" + cfg.image.filePath;
   tarballName = cfg.image.fileName;
   pve = cfg.lxc.pve;
