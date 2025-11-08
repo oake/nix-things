@@ -40,4 +40,7 @@ in
   nixpkgs.overlays = [
     flake.overlays.default
   ];
+
+  # avoid building locally
+  nix.settings.always-allow-substitutes = true;
 }
