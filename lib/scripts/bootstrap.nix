@@ -118,7 +118,7 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   wipe
   git add --all
   echo "Rekeying..."
-  nix run .#agenix-rekey.${targetPkgs.system}.rekey -- -a
+  nix run .#agenix-rekey.${targetPkgs.stdenv.hostPlatform.system}.rekey -- -a
 
   CURRENT_STEP=5
   wipe

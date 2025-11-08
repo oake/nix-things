@@ -87,7 +87,7 @@ in
       acc: name:
       let
         c = withDisko.${name};
-        sys = c.pkgs.system;
+        sys = c.pkgs.stdenv.hostPlatform.system;
       in
       lib.recursiveUpdate acc { ${sys}."disko-${name}" = c.config.system.build.diskoScript; }
     ) { } (builtins.attrNames withDisko);
@@ -116,7 +116,7 @@ in
       profiles.system = {
         sshUser = "deploy";
         user = "root";
-        path = deployPkgs.${cfg.pkgs.system}.deploy-rs.lib.activate.nixos cfg;
+        path = deployPkgs.${cfg.pkgs.stdenv.hostPlatform.system}.deploy-rs.lib.activate.nixos cfg;
       };
     }) deployCfgs;
 
