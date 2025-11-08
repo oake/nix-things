@@ -15,22 +15,57 @@ let
 
   mkPerHostScripts =
     mkScript: nixosConfigurations:
-    forAllSystems (
-      system:
-      let
-        pkgs = inputs.nixpkgs.legacyPackages.${system};
-      in
-      pkgs.lib.mapAttrs' (
-        name: config:
+    let
+      builderSystem = "x86_64-linux";
+      builderPkgs = inputs.nixpkgs.legacyPackages.${builderSystem};
+
+      apps = forAllSystems (
+        system:
         let
-          script = mkScript pkgs name config;
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
+        in
+        pkgs.lib.mapAttrs' (
+          name: cfg:
+          let
+            drv = mkScript pkgs pkgs name cfg;
+          in
+          {
+            name = drv.name;
+            value = {
+              type = "app";
+              program = "${drv}/bin/${drv.name}";
+            };
+          }
+        ) nixosConfigurations
+      );
+
+      checks.${builderSystem} = builderPkgs.lib.mapAttrs' (
+        name: cfg:
+        let
+          perTarget = forAllSystems (
+            system:
+            let
+              targetPkgs = inputs.nixpkgs.legacyPackages.${system};
+            in
+            mkScript builderPkgs targetPkgs name cfg
+          );
+          scriptName = perTarget.${builderSystem}.name;
+          checkDrv = builderPkgs.linkFarm scriptName (
+            lib.mapAttrsToList (system: drv: {
+              name = "bin/${drv.name}-${system}";
+              path = "${drv}/bin/${drv.name}";
+            }) perTarget
+          );
         in
         {
-          name = script.name;
-          value = script;
+          name = scriptName;
+          value = checkDrv;
         }
-      ) nixosConfigurations
-    );
+      ) nixosConfigurations;
+    in
+    {
+      inherit apps checks;
+    };
 in
 {
   mkBtrfsMount = part: subvol: {

@@ -1,11 +1,11 @@
-pkgs: hostName: nixosConfig:
+pkgs: targetPkgs: hostName: nixosConfig:
 let
-  inherit ((import ./helpers.nix) { inherit pkgs; }) mkFlakeScript;
+  inherit ((import ./helpers.nix) { inherit pkgs targetPkgs; }) mkFlakeScript;
   config = nixosConfig.config;
   isLxc = config.lxc.enable;
   isImpermanence = config.environment ? persistence;
   pubkeyPath = config.age.rekey.hostPubkeyRelPath;
-  inherit (pkgs) openssh;
+  inherit (targetPkgs) openssh;
 in
 mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   CURRENT_STEP=1
@@ -118,7 +118,7 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   wipe
   git add --all
   echo "Rekeying..."
-  nix run .#agenix-rekey.${pkgs.system}.rekey -- -a
+  nix run .#agenix-rekey.${targetPkgs.system}.rekey -- -a
 
   CURRENT_STEP=5
   wipe
