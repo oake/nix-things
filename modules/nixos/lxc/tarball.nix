@@ -83,7 +83,7 @@ let
 in
 {
   config = lib.mkIf config.lxc.enable {
-    image.baseName = "vzdump-lxc-${short}-${config.system.configurationRevision}";
+    image.baseName = "vzdump-lxc-${short}";
     image.extension = lib.mkForce "tar.zst";
     system.build.tarball = lib.mkForce tarball;
   };
