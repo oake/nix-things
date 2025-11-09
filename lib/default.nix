@@ -110,15 +110,31 @@ in
         }
       );
       deployCfgs = lib.filterAttrs (_: c: c.config.deploy.enable) cfgs;
+      mkActivate =
+        cfg:
+        let
+          system = cfg.pkgs.stdenv.hostPlatform.system;
+        in
+        deployPkgs.${system}.deploy-rs.lib.activate.nixos cfg;
+      nodes = lib.mapAttrs (_: cfg: {
+        hostname = cfg.config.deploy.fqdn;
+        profiles.system = {
+          sshUser = "deploy";
+          user = "root";
+          path = mkActivate cfg;
+        };
+      }) deployCfgs;
+      checks = lib.foldl' lib.recursiveUpdate { } (
+        lib.mapAttrsToList (name: cfg: {
+          ${cfg.pkgs.stdenv.hostPlatform.system} = {
+            "deploy-${name}" = mkActivate cfg;
+          };
+        }) deployCfgs
+      );
     in
-    lib.mapAttrs (name: cfg: {
-      hostname = cfg.config.deploy.fqdn;
-      profiles.system = {
-        sshUser = "deploy";
-        user = "root";
-        path = deployPkgs.${cfg.pkgs.stdenv.hostPlatform.system}.deploy-rs.lib.activate.nixos cfg;
-      };
-    }) deployCfgs;
+    {
+      inherit nodes checks;
+    };
 
   mkBootstrapScripts = mkPerHostScripts (import ./scripts/bootstrap.nix);
   mkLxcScripts =
