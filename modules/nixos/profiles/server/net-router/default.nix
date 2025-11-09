@@ -13,12 +13,19 @@
         Port the NetBird client listens on.
       '';
     };
+    tokenType = lib.mkOption {
+      type = lib.types.str;
+      default = "homelab";
+      description = ''
+        Type of token to pull from secrets.
+      '';
+    };
   };
 
   config = lib.mkIf config.profiles.server.net-router.enable {
     profiles.server.enable = lib.mkForce true;
 
-    age.secrets.netbird-homelab = {
+    age.secrets."netbird-${config.profiles.server.net-router.tokenType}" = {
       owner = "netbird";
       group = "netbird";
     };
@@ -26,7 +33,7 @@
     services.netbird.simple = {
       enable = true;
       managementUrl = "https://net.oa.ke";
-      setupKeyFile = config.age.secrets.netbird-homelab.path;
+      setupKeyFile = config.age.secrets."netbird-${config.profiles.server.net-router.tokenType}".path;
     };
 
     services.netbird.clients.default.port = lib.mkForce config.profiles.server.net-router.port;
