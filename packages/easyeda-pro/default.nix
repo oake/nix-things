@@ -9,7 +9,7 @@ let
     unzip
     autoPatchelfHook
     makeWrapper
-    wrapGAppsHook
+    wrapGAppsHook3
     glib
     nss
     libdrm
@@ -43,7 +43,7 @@ stdenv.mkDerivation {
     unzip
     autoPatchelfHook
     makeWrapper
-    wrapGAppsHook
+    wrapGAppsHook3
   ];
 
   inherit buildInputs;
