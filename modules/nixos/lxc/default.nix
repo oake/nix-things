@@ -20,6 +20,8 @@
       proxmoxLXC.enable = lib.mkForce true;
       proxmoxLXC.manageNetwork = true;
 
+      networking.enableIPv6 = false;
+
       age.identityPaths = [ "/nix-lxc/agenix_key" ];
 
       nixpkgs.hostPlatform = "x86_64-linux";
