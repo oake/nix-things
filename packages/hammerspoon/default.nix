@@ -11,12 +11,12 @@ let
 in
 stdenv.mkDerivation rec {
   inherit pname;
-  version = "1.0.0";
+  version = "1.1.0";
 
   src = fetchzip {
     name = "${pname}-${version}-source.zip";
     url = "https://github.com/Hammerspoon/hammerspoon/releases/download/${version}/Hammerspoon-${version}.zip";
-    sha256 = "sha256-CuTFI9qXHplhWLeHS7bgZJolULbg9jQRyT6MTKzkQqs=";
+    sha256 = "sha256-83s+tzeQRVISuxbPjVBjs6azTUzsSmURFDjGDFglYrM=";
     stripRoot = false;
   };
 
