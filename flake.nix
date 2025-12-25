@@ -47,6 +47,7 @@
       commonModules = mkModules blueprint.modules.common;
       nixosModules = mkModules blueprint.nixosModules;
       darwinModules = mkModules blueprint.darwinModules;
+      homeModules = mkModules blueprint.homeModules;
 
       overlays.default = import ./overlay.nix;
     };
