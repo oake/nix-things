@@ -27,18 +27,39 @@
         --flake '.#{{host}}' \
         root@{{host}}.{{landomain}}
 
-# use deploy-rs to update an existing host
+# use deploy-rs to update existing hosts
 [group('deployment')]
-deploy host build='auto': _add
+deploy *args: _add
   #!/usr/bin/env sh
   set -euo pipefail
+  MODE=auto
+  TARGETS=""
+  for arg in {{args}}; do
+    case "$arg" in
+      --remote) MODE=remote ;;
+      --local) MODE=local ;;
+      *) TARGETS="${TARGETS} .#${arg}" ;;
+    esac
+  done
+  if [ -z "$TARGETS" ]; then
+    echo "usage: just deploy <host...> [--remote|--local]" >&2
+    exit 2
+  fi
+
   DEPLOY_ARG=--remote-build
-  case "{{build}}" in
-    local)  DEPLOY_ARG= ;;
+  case "$MODE" in
+    local) DEPLOY_ARG= ;;
     remote) ;;
-    *)      case "{{host}}" in lxc-*) DEPLOY_ARG= ;; esac ;;
+    *) case "$TARGETS" in *".#lxc-"*) ;;
+       *) DEPLOY_ARG=--remote-build ;;
+       esac ;;
   esac
-  nix run nixpkgs#deploy-rs -- .#{{host}} -s ${DEPLOY_ARG}
+  if [ "$MODE" = "auto" ] && printf '%s' "$TARGETS" | grep -q '\.#lxc-' && \
+     ! printf '%s' "$TARGETS" | grep -qv '\.#lxc-'; then
+    DEPLOY_ARG=
+  fi
+
+  nix run nixpkgs#deploy-rs -- -s ${DEPLOY_ARG} --targets ${TARGETS}
 
 # create/edit agenix secret
 [group('secrets')]
