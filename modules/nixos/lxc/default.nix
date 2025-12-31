@@ -17,6 +17,8 @@
         "sys-kernel-debug.mount"
       ];
 
+      system.nixos.tags = lib.mkForce [ ];
+
       proxmoxLXC.enable = lib.mkForce true;
       proxmoxLXC.manageNetwork = true;
 
