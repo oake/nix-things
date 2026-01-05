@@ -20,6 +20,13 @@
         Type of token to pull from secrets.
       '';
     };
+    enableForwarding = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Enable IP forwarding for the NetBird client.
+      '';
+    };
   };
 
   config = lib.mkIf config.profiles.server.net-router.enable {
@@ -38,7 +45,7 @@
 
     services.netbird.clients.default.port = lib.mkForce config.profiles.server.net-router.port;
 
-    boot.kernel.sysctl = {
+    boot.kernel.sysctl = lib.mkIf config.profiles.server.net-router.enableForwarding {
       "net.ipv4.conf.all.forwarding" = true;
       "net.ipv6.conf.all.forwarding" = true;
     };

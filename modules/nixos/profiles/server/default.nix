@@ -7,6 +7,7 @@
   imports = [
     ./share
     ./net-router
+    ./monitor
   ];
 
   config = lib.mkIf config.profiles.server.enable {
