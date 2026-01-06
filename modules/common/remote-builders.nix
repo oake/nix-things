@@ -30,6 +30,18 @@ let
       ];
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU1ERFRaT0pXM3RJSFZVYkZZR2hMVm5QMFV5WENucFd4L0ZKOHYrTWI3ZDUgbHhjLWJ1aWxkZXI=";
     };
+    lxc-builder-kitezh = {
+      hostName = "builder.lan.al";
+      system = "x86_64-linux";
+      maxJobs = 10;
+      supportedFeatures = [
+        "benchmark"
+        "big-parallel"
+        "kvm"
+        "nixos-test"
+      ];
+      publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU1nbnJUVWFRN3hKalRWSG1qcXptZWJKMG83bnZmYTZkOXVSV3NTWEYwTTEgbHhjLWJ1aWxkZXI=";
+    };
   };
 in
 {
