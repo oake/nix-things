@@ -36,6 +36,12 @@ in
     options = "--delete-older-than 30d";
   };
 
+  nix.registry.things.to = {
+    type = "github";
+    owner = "oake";
+    repo = "nix-things";
+  };
+
   # overlays
   nixpkgs.overlays = [
     flake.overlays.default
