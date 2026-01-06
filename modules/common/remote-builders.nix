@@ -18,7 +18,7 @@ let
       ];
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUVqNkVSbk5ldUxuL0ZsTXFxN3pTVFhYbFBDLzFiVTlxT1lsYTNGTUJvbFMgZ3JhdGlzCg==";
     };
-    "lxc-builder" = {
+    lxc-builder-buyan = {
       hostName = "builder.lan.ci";
       system = "x86_64-linux";
       maxJobs = 10;
@@ -28,7 +28,7 @@ let
         "kvm"
         "nixos-test"
       ];
-      publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUU5aitSdGpaMDdWeXhDVDduSmk2Y3RUeUFWOGFsdUxaU3dncHptWmdGTkogbHhjLWJ1aWxkZXIK";
+      publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU1ERFRaT0pXM3RJSFZVYkZZR2hMVm5QMFV5WENucFd4L0ZKOHYrTWI3ZDUgbHhjLWJ1aWxkZXI=";
     };
   };
 in
