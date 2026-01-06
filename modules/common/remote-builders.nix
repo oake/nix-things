@@ -16,7 +16,6 @@ let
         "kvm"
         "nixos-test"
       ];
-      protocol = "ssh-ng";
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUVqNkVSbk5ldUxuL0ZsTXFxN3pTVFhYbFBDLzFiVTlxT1lsYTNGTUJvbFMgZ3JhdGlzCg==";
     };
     "lxc-builder" = {
@@ -29,7 +28,6 @@ let
         "kvm"
         "nixos-test"
       ];
-      protocol = "ssh-ng";
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUU5aitSdGpaMDdWeXhDVDduSmk2Y3RUeUFWOGFsdUxaU3dncHptWmdGTkogbHhjLWJ1aWxkZXIK";
     };
   };
@@ -37,6 +35,14 @@ in
 {
   options.remoteBuilders = {
     auto = lib.mkEnableOption "required remote builders automatically";
+    protocol = lib.mkOption {
+      type = lib.types.enum [
+        "ssh-ng"
+        "ssh"
+      ];
+      default = "ssh-ng";
+      description = "The protocol to use for remote builders.";
+    };
     machines = lib.mapAttrs (name: machine: {
       enable = lib.mkEnableOption "${machine.system} remote builder (${machine.hostName})" // {
         default = config.remoteBuilders.auto && config.nixpkgs.hostPlatform.system != machine.system;
@@ -67,6 +73,7 @@ in
       // {
         sshUser = cfg.sshUser;
         sshKey = cfg.sshKey;
+        protocol = config.remoteBuilders.protocol;
       }
     ) (lib.attrsets.filterAttrs (name: machine: machine.enable) config.remoteBuilders.machines);
   };
