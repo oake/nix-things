@@ -49,6 +49,7 @@ in
       name = "netbird";
       interface = "nb0";
       port = 51820;
+      logLevel = "warn";
     };
 
     systemd.services.netbird.postStart = lib.optionalString (cfg.setupKeyFile != null) ''
