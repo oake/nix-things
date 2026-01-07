@@ -22,6 +22,12 @@
     boot.bootspec.enable = true;
     boot.lanzaboote = {
       enable = true;
+      autoGenerateKeys.enable = true;
+      autoEnrollKeys = {
+        enable = true;
+        autoReboot = true;
+      };
+      allowUnsigned = true;
       pkiBundle = "/etc/secureboot";
     };
   };
