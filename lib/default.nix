@@ -143,4 +143,6 @@ in
       withLxc = lib.filterAttrs (_: c: c.config.lxc.enable) cfgs;
     in
     mkPerHostScripts (import ./scripts/install-lxc.nix) withLxc;
+
+  disko = import ./disko.nix;
 }
