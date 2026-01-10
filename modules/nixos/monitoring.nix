@@ -49,5 +49,9 @@ in
         )
       '';
     };
+
+    disko.simple.impermanence.persist.directories = [
+      "/var/spool/rsyslog"
+    ];
   };
 }

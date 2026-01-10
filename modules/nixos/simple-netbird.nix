@@ -86,5 +86,9 @@ in
 
       main "$@"
     '';
+
+    disko.simple.impermanence.persist.directories = [
+      "/var/lib/netbird"
+    ];
   };
 }

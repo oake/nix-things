@@ -38,5 +38,9 @@ in
       ];
       loader.grub.splashImage = null;
     };
+
+    disko.simple.impermanence.persist.files = [
+      "/var/lib/plymouth/boot-duration"
+    ];
   };
 }
