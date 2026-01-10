@@ -3,7 +3,7 @@ let
   inherit ((import ./helpers.nix) { inherit pkgs targetPkgs; }) mkFlakeScript;
   config = nixosConfig.config;
   isLxc = config.lxc.enable;
-  isImpermanence = config.environment ? persistence;
+  isImpermanence = config.disko.simple.impermanence.enable;
   pubkeyPath = config.age.rekey.hostPubkeyRelPath;
   inherit (targetPkgs) openssh;
 in
