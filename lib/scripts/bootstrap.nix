@@ -5,17 +5,18 @@ let
   isLxc = config.lxc.enable;
   isImpermanence = config.disko.simple.impermanence.enable;
   pubkeyPath = config.age.rekey.hostPubkeyRelPath;
-  inherit (targetPkgs) openssh;
+  inherit (targetPkgs) openssh age;
 in
-mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
+mkFlakeScript "bootstrap-${hostName}" [ openssh age ] ''
   CURRENT_STEP=1
   BOOTSTRAP_DIR=".bootstrap"
-  SSHDIR="$BOOTSTRAP_DIR/${
+  KEYDIR="$BOOTSTRAP_DIR/${
     if isLxc then
       "nix-lxc/${hostName}"
     else
-      (if isImpermanence then "extra/persist/etc/ssh" else "extra/etc/ssh")
+      (if isImpermanence then "extra/persist/etc" else "extra/etc")
   }"
+  KEYFILE="$KEYDIR/agenix_pq_key"
 
   rm -rf -- "$BOOTSTRAP_DIR"
   mkdir -p "$BOOTSTRAP_DIR"
@@ -34,21 +35,10 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
     echo "$mod$num. $text$normal"
   }
 
-  function genkey() {
-    local keyType="$1"
-    local keyName="$2"
-
-    if [ "$keyType" = "ed25519" ]; then
-      ssh-keygen -q -t ed25519 -N "" -C "${hostName}" -f "$SSHDIR/$keyName"
-    elif [ "$keyType" = "rsa" ]; then
-      ssh-keygen -q -t rsa -b 4096 -N "" -C "${hostName}" -f "$SSHDIR/$keyName"
-    fi
-  }
-
   function wipe() {
     clear
     echo "''${bold}Bootstrapping ${hostName} will:''${normal}"
-    step 1 "Generate ${if isLxc then "an Ed25519 keypair" else "Ed25519 and RSA keypairs"}"
+    step 1 "Generate a post-quantum hybrid ML-KEM-768 + X25519 key pair"
     step 2 "Copy the public key into ${pubkeyPath}"
     ${
       if isLxc then
@@ -57,7 +47,7 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
         ''
       else
         ''
-          step 3 "Place the keys in $SSHDIR"
+          step 3 "Place the keys in $KEYDIR"
         ''
     }
     step 4 "Rekey your secrets for the new public key"
@@ -76,28 +66,15 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   confirm "Proceed?" || abort
   wipe
 
-  mkdir -p "$SSHDIR"
+  mkdir -p "$KEYDIR"
 
-  ${
-    if isLxc then
-      ''
-        genkey ed25519 agenix_key
-        PUBKEY_FILE="$SSHDIR/agenix_key.pub"
-      ''
-    else
-      ''
-        genkey ed25519 ssh_host_ed25519_key
-        genkey rsa ssh_host_rsa_key
-        chmod 0755 "$SSHDIR/.."
-        chmod 0755 "$SSHDIR"
-        PUBKEY_FILE="$SSHDIR/ssh_host_ed25519_key.pub"
-      ''
-  }
+  age-keygen -pq -o "$KEYFILE"
 
   CURRENT_STEP=2
   wipe
 
-  install -m 0644 "$PUBKEY_FILE" "${pubkeyPath}"
+  rm -f "${pubkeyPath}"
+  age-keygen -y -o "${pubkeyPath}" "$KEYFILE"
 
   ${
     if isLxc then
@@ -107,11 +84,11 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
 
         confirm "Upload the keys to ${config.lxc.pve.host}?" || abort
         ssh "root@${config.lxc.pve.host}" "mkdir -p ${config.lxc.pve.keypairPath}"
-        scp "$SSHDIR/agenix_key"{,.pub} "root@${config.lxc.pve.host}:${config.lxc.pve.keypairPath}/"
+        scp "$KEYFILE" "root@${config.lxc.pve.host}:${config.lxc.pve.keypairPath}/"
         ssh "root@${config.lxc.pve.host}" "chown -R 100000:100000 ${config.lxc.pve.keypairPath}"
       ''
     else
-      ''''
+      ""
   }
 
   CURRENT_STEP=4
@@ -138,10 +115,10 @@ mkFlakeScript "bootstrap-${hostName}" [ openssh ] ''
   ${
     if !isLxc then
       ''
-        echo "P.S. The install command will require the keys I just put in $SSHDIR"
+        echo "P.S. The install command will require the keys I just put in $KEYDIR"
         echo "Don't lose them!"
       ''
     else
-      ''''
+      ""
   }
 ''
