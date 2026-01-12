@@ -11,13 +11,13 @@ let
 in
 buildGoModule rec {
   inherit pname;
-  version = "0.1.6";
+  version = "0.1.7";
 
   src = fetchFromGitHub {
     owner = "vvoland";
     repo = "linkwinbt";
     tag = "v${version}";
-    hash = "sha256-elA8PA8dAG23oFfFAWSs/u1Dh9/ch388GFNZ7HmBqJg=";
+    hash = "sha256-WmPYoOc4+Nf0RksFjaxUtjOc5orYMRQ6X6X6rzkDCy0=";
   };
 
   vendorHash = "sha256-Ws8E9EYVLpp1Q/5c1kdfMbDgmsxoLvbhiLUiGel65kA=";
