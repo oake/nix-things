@@ -207,7 +207,7 @@ in
             Defaults lecture = never
           '';
 
-          age.identityPaths = [ "${persistPath}/etc/ssh/ssh_host_ed25519_key" ];
+          age.identityPaths = [ "${persistPath}/etc/agenix_pq_key" ];
 
           disko.simple.impermanence.persist = {
             directories = [
@@ -222,6 +222,7 @@ in
               "/etc/ssh/ssh_host_ed25519_key.pub"
               "/etc/ssh/ssh_host_rsa_key"
               "/etc/ssh/ssh_host_rsa_key.pub"
+              "/etc/agenix_pq_key"
             ];
           };
         })

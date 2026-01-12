@@ -26,14 +26,10 @@ in
   };
   config = {
     warnings = [
-      (lib.mkIf (!config.age.ready) ''
-        After initial target provisioning, fetch the target ssh identity:
-
-          ssh-keyscan -qt ssh-ed25519 $target | cut -d' ' -f2,3 > ./${publicKeyRelPath}
-
-        And rebuild NixOS.
-      '')
+      (lib.mkIf (!config.age.ready) "No agenix public key provided. Secrets won't be decrypted.")
     ];
+
+    age.identityPaths = lib.mkDefault [ "/etc/agenix_pq_key" ];
 
     age.rekey = {
       localStorageDir = inputs.self.outPath + "/secrets/rekeyed/${hostName}";

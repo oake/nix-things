@@ -24,7 +24,7 @@
 
       networking.enableIPv6 = false;
 
-      age.identityPaths = [ "/nix-lxc/agenix_key" ];
+      age.identityPaths = [ "/nix-lxc/agenix_pq_key" ];
 
       nixpkgs.hostPlatform = "x86_64-linux";
 
