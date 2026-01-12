@@ -19,7 +19,7 @@ let
     udev
     lib
     ;
-  version = "2.2.39.2";
+  version = "2.2.45.4";
 
   buildInputs = [
     glib
@@ -36,7 +36,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://image.easyeda.com/files/easyeda-pro-linux-x64-${version}.zip";
-    sha256 = "sha256-Fr1+RTkcd3khLhyEP9Tpelp0BANsi/O1uKQwfdN5y2E=";
+    sha256 = "sha256-rLYVfPisNhVU2YiHVhCGQf5coWrPccYR2qbtVJENUAI=";
   };
 
   nativeBuildInputs = [
@@ -73,6 +73,8 @@ stdenv.mkDerivation {
     description = "EasyEDA Pro Edition";
     homepage = "https://easyeda.com/";
     license = lib.licenses.unfree;
-    platforms = lib.platforms.linux;
+    platforms = [
+      "x86_64-linux"
+    ];
   };
 }
