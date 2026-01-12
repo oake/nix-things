@@ -34,6 +34,9 @@ let
             value = {
               type = "app";
               program = "${drv}/bin/${drv.name}";
+              meta = {
+                description = "Helper script ${drv.name}";
+              };
             };
           }
         ) nixosConfigurations
