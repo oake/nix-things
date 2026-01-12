@@ -9,15 +9,16 @@ let
     fetchurl
     _7zz
     makeWrapper
+    nix-update-script
     ;
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "1.0.4";
+  version = "1.0.5";
 
   src = fetchurl {
     url = "https://github.com/ryzenixx/proxmoxbar-macos/releases/download/v${finalAttrs.version}/ProxmoxBar.dmg";
-    hash = "sha256-JbxBJ3ZbPSWOX9GZJ0Vjc7gTODem8GBHkMDN+Igx32I=";
+    hash = "sha256-+sTFvvrKHu1GxTSN6mhIupudZpR+oEnufKxstUhHt+k=";
   };
   sourceRoot = ".";
 
@@ -37,6 +38,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     runHook postInstall
   '';
+
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "A native macOS menu bar app to manage Proxmox Resources";
