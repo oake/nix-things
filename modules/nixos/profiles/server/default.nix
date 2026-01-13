@@ -23,6 +23,8 @@
     programs.bash.completion.enable = false;
     programs.command-not-found.enable = false;
 
+    system.disableInstallerTools = true;
+
     documentation.enable = false;
 
     xdg.icons.enable = false;
