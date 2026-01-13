@@ -3,6 +3,7 @@
   lib,
   hostName,
   config,
+  pkgs,
   ...
 }:
 let
@@ -35,6 +36,9 @@ in
       localStorageDir = inputs.self.outPath + "/secrets/rekeyed/${hostName}";
       secretsDir = inputs.self.outPath + "/secrets/secrets";
       storageMode = "local";
+      agePlugins = [
+        pkgs.age-plugin-1p-pq
+      ];
     }
     // lib.optionalAttrs config.age.ready {
       hostPubkey = builtins.readFile publicKeyAbsPath;
