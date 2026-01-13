@@ -12,12 +12,12 @@ in
       enable = lib.mkEnableOption "pushing logs to SIEM";
       target = lib.mkOption {
         type = lib.types.str;
-        description = "Hostname or IP address to push syslog messages to";
+        description = "Hostname or IP address to push messages to";
       };
       port = lib.mkOption {
         type = lib.types.int;
-        default = 3514;
-        description = "Port to push syslog messages to";
+        default = 12202;
+        description = "Port of a GELF TCP input to push messages to";
       };
     };
     machineType = lib.mkOption {
@@ -30,28 +30,37 @@ in
     };
   };
   config = lib.mkIf cfg.logs.enable {
-    services.rsyslogd = {
+    services.fluent-bit = {
       enable = true;
-      extraConfig = ''
-        *.* action(
-          type="omfwd"
-          target="${cfg.logs.target}"
-          port="${toString cfg.logs.port}"
-          protocol="tcp"
-          template="RSYSLOG_SyslogProtocol23Format"
+      settings = {
+        service.log_level = "warn";
+        pipeline = {
+          inputs = [
+            {
+              name = "systemd";
+              tag = "journal.*";
 
-          action.resumeRetryCount="-1"
+              read_from_tail = true;
+              lowercase = true;
+              strip_underscores = true;
+            }
+          ];
+          outputs = [
+            {
+              name = "gelf";
+              match = "journal.*";
 
-          queue.type="LinkedList"
-          queue.filename="fwdqueue"
-          queue.maxdiskspace="1g"
-          queue.saveonshutdown="on"
-        )
-      '';
+              host = cfg.logs.target;
+              port = cfg.logs.port;
+              mode = "tcp";
+
+              gelf_short_message_key = "message";
+              gelf_host_key = "hostname";
+              gelf_level_key = "priority";
+            }
+          ];
+        };
+      };
     };
-
-    disko.simple.impermanence.persist.directories = [
-      "/var/spool/rsyslog"
-    ];
   };
 }
