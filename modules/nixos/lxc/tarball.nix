@@ -31,22 +31,24 @@ let
   # i'm setting it to 00:00:00:00:00:00 which makes PVE fail to start the container when restored without "unique"
   # forcing the user to go and set a MAC.
 
-  pctConf = pkgs.writeText "pct.conf" ''
-    arch: amd64
-    cores: ${toString config.lxc.cores}
-    features: ${featuresStr}
-    hostname: ${short}
-    memory: ${toString config.lxc.memory}
-    swap: ${toString config.lxc.swap}
-    unprivileged: ${if config.lxc.unprivileged then "1" else "0"}
-    net0: name=eth0,bridge=${config.lxc.network},hwaddr=00:00:00:00:00:00,ip=dhcp,type=veth
-    ostype: unmanaged
-    onboot: ${if config.lxc.autoStart then "1" else "0"}
-    tags: ${tagsStr}
-    rootfs: ${config.lxc.storageName}:unknown,size=${toString config.lxc.diskSize}G
-    ${mountsLines}
-    ${config.lxc.extraConfig}
-  '';
+  pctConf = pkgs.writeText "pct.conf" (
+    ''
+      arch: amd64
+      cores: ${toString config.lxc.cores}
+      features: ${featuresStr}
+      hostname: ${short}
+      memory: ${toString config.lxc.memory}
+      swap: ${toString config.lxc.swap}
+      net0: name=eth0,bridge=${config.lxc.network},hwaddr=00:00:00:00:00:00,ip=dhcp,type=veth
+      ostype: unmanaged
+      onboot: ${if config.lxc.autoStart then "1" else "0"}
+      tags: ${tagsStr}
+      rootfs: ${config.lxc.storageName}:unknown,size=${toString config.lxc.diskSize}G
+      ${mountsLines}
+      ${config.lxc.extraConfig}
+    ''
+    + lib.optionalString config.lxc.unprivileged "unprivileged: 1"
+  );
 
   pctFw = pkgs.writeText "pct.fw" ""; # not implemented
 
