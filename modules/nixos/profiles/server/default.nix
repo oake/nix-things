@@ -8,6 +8,7 @@
     ./share
     ./net-router
     ./monitor
+    ./docker
   ];
 
   config = lib.mkIf config.profiles.server.enable {
