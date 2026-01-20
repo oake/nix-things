@@ -7,6 +7,10 @@ let
   cfg = config.profiles.server.docker;
 in
 {
+  imports = [
+    ./networks.nix
+  ];
+
   options.profiles.server.docker = {
     enable = lib.mkEnableOption "Docker server profile";
 
@@ -38,6 +42,10 @@ in
             persistent = true;
             flags = [ "--all" ]; # all unused images, not just dangling ones
           };
+        };
+
+        profiles.server.docker.networks = {
+          web = "172.16.0.0/22";
         };
       }
       (lib.mkIf cfg.enableNvidiaSupport {
