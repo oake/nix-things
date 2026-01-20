@@ -9,6 +9,7 @@
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
     ./options.nix
     ./tarball.nix
+    ./nvidia.nix
   ];
 
   config = lib.mkMerge [

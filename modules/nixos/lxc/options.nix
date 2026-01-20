@@ -72,6 +72,14 @@
       default = [ ];
       description = "List of tags to add to the container";
     };
+    nvidia = {
+      enable = lib.mkEnableOption "Nvidia GPU passthrough";
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = "The Nvidia driver package to use. If set, Nvidia passthrough will be configured. Must match the host driver version.";
+      };
+    };
     pve = lib.mkOption {
       type = lib.types.submodule {
         options = {
