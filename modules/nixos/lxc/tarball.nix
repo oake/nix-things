@@ -39,7 +39,6 @@ let
     ''
       arch: amd64
       cores: ${toString config.lxc.cores}
-      features: ${featuresStr}
       hostname: ${short}
       memory: ${toString config.lxc.memory}
       swap: ${toString config.lxc.swap}
@@ -53,6 +52,7 @@ let
       ${config.lxc.extraConfig}
     ''
     + lib.optionalString config.lxc.unprivileged "unprivileged: 1"
+    + lib.optionalString (featuresStr != "") "features: ${featuresStr}"
   );
 
   pctFw = pkgs.writeText "pct.fw" ""; # not implemented
