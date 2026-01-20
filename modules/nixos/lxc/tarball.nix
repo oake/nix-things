@@ -17,6 +17,10 @@ let
     lib.imap0 (i: m: "mp${toString i}: ${m}") config.lxc.mounts
   );
 
+  devicesLines = lib.concatStringsSep "\n" (
+    lib.imap0 (i: d: "dev${toString i}: ${d}") config.lxc.devices
+  );
+
   # i wanna talk a bit about why we add hwaddr=00:00:00:00:00:00 down there.
   #
   # when you restore an LXC backup, you can tick off "unique" and PVE would generate a new one
@@ -45,6 +49,7 @@ let
       tags: ${tagsStr}
       rootfs: ${config.lxc.storageName}:unknown,size=${toString config.lxc.diskSize}G
       ${mountsLines}
+      ${devicesLines}
       ${config.lxc.extraConfig}
     ''
     + lib.optionalString config.lxc.unprivileged "unprivileged: 1"

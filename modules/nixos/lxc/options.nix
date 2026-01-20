@@ -52,6 +52,11 @@
       default = [ ];
       description = "List of mounts to configure for the container";
     };
+    devices = lib.mkOption {
+      type = lib.types.listOf (lib.types.str);
+      default = [ ];
+      description = "List of devices to passthrough into the container";
+    };
     extraConfig = lib.mkOption {
       type = lib.types.lines;
       default = "";
