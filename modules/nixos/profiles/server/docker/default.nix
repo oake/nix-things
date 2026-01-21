@@ -9,6 +9,7 @@ in
 {
   imports = [
     ./networks.nix
+    ./portainer.nix
   ];
 
   options.profiles.server.docker = {
@@ -43,6 +44,8 @@ in
             flags = [ "--all" ]; # all unused images, not just dangling ones
           };
         };
+
+        virtualisation.oci-containers.backend = "docker";
 
         profiles.server.docker.networks = {
           web = "172.16.0.0/22";
