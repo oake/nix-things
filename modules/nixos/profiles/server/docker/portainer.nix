@@ -59,6 +59,8 @@ in
           "traefik.http.routers.portainer.entrypoints" = cfg.portainer.traefikIntegration.entrypoint;
         }
       );
+
+      log-driver = lib.mkIf config.monitoring.logs.docker.enable "gelf";
     };
   };
 }
