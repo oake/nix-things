@@ -46,6 +46,8 @@ in
     };
 
     luks = lib.mkEnableOption "LUKS encryption of the root filesystem";
+
+    supportLegacy = lib.mkEnableOption "BIOS boot support";
   };
 
   config = lib.mkMerge [
@@ -126,6 +128,11 @@ in
                 content = {
                   type = "gpt";
                   partitions = {
+                    legacy = lib.mkIf cfg.supportLegacy {
+                      size = "1M";
+                      type = "EF02";
+                      attributes = [ 0 ];
+                    };
                     boot = {
                       size = "512M";
                       type = "EF00";
