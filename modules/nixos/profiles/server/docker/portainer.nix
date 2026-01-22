@@ -25,7 +25,7 @@ in
       };
       entrypoint = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
-        default = "lan";
+        default = null;
         description = "Entrypoint for traefik to route to portainer from";
       };
     };
@@ -60,7 +60,7 @@ in
         }
       );
 
-      log-driver = lib.mkIf config.monitoring.logs.docker.enable "gelf";
+      log-driver = lib.mkIf config.monitoring.logs.docker.enable "fluentd";
     };
   };
 }
