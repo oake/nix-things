@@ -11,13 +11,13 @@ let
 in
 buildGoModule rec {
   inherit pname;
-  version = "1.0.0";
+  version = "1.0.1";
 
   src = fetchFromGitHub {
     owner = "anna-oake";
     repo = "age-plugin-1p-pq";
     tag = "v${version}";
-    hash = "sha256-hFN+2CJ/vi5XTtRXQmBB3WmTDjjXV1gfzYgcA4xJKqY=";
+    hash = "sha256-3FCE/vwkL5Gjso72Q21W/bH/fbZlnE3qM3wtUZPPhIM=";
   };
 
   vendorHash = "sha256-6xFkrAfc0Hw1/5ihI3VJrP+hUanZu262MJD1NXQmzXc=";
