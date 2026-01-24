@@ -1,10 +1,17 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
   cfg = config.lxc.nvidia;
+  nvidia-userspace = pkgs.callPackage ./nvidia-userspace.nix {
+    nvidia-libs = cfg.package.override {
+      libsOnly = true;
+      kernel = null;
+    };
+  };
 in
 {
   config = lib.mkIf (config.lxc.enable && cfg.enable) {
@@ -15,10 +22,30 @@ in
       }
     ];
 
+    environment.systemPackages = [ nvidia-userspace ];
+
     hardware.graphics.enable = true;
-    hardware.graphics.package = cfg.package;
-    hardware.nvidia.package = cfg.package;
-    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
+    hardware.graphics.package = nvidia-userspace;
+    hardware.nvidia.package = nvidia-userspace;
+    hardware.nvidia-container-toolkit = {
+      suppressNvidiaDriverAssertion = true;
+
+      mount-nvidia-executables = false;
+      mounts = lib.mkAfter (
+        map
+          (tool: {
+            hostPath = "${nvidia-userspace}/origBin/${tool}";
+            containerPath = "/usr/bin/${tool}";
+          })
+          [
+            "nvidia-smi"
+            "nvidia-debugdump"
+            "nvidia-powerd"
+            "nvidia-cuda-mps-control"
+            "nvidia-cuda-mps-server"
+          ]
+      );
+    };
 
     lxc = {
       devices = [
