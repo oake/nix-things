@@ -17,7 +17,7 @@ in
 
     hardware.graphics.enable = true;
     hardware.graphics.package = cfg.package;
-    environment.systemPackages = [ cfg.package ];
+    hardware.nvidia.package = cfg.package;
     hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
 
     lxc = {
