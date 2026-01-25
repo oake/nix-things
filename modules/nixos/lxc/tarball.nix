@@ -51,7 +51,7 @@ let
       ${devicesLines}
       ${config.lxc.extraConfig}
     ''
-    + lib.optionalString config.lxc.unprivileged "unprivileged: 1"
+    + lib.optionalString config.lxc.unprivileged "unprivileged: 1\n"
     + lib.optionalString (featuresStr != "") "features: ${featuresStr}"
   );
 
