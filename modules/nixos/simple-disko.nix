@@ -171,13 +171,9 @@ in
             ''
           );
         }
-        (lib.mkIf cfg.impermanence.enable {
-          fileSystems.${persistPath}.neededForBoot = true;
-
-          boot.initrd = {
-            enable = true;
-            supportedFilesystems = [ "btrfs" ];
-            postResumeCommands = lib.mkAfter ''
+        (lib.mkIf cfg.impermanence.enable (
+          let
+            wipeScript = ''
               (
                 set -euo pipefail
 
@@ -207,32 +203,55 @@ in
                 umount /btrfs
               ) || echo "[impermanence] wipe failed — continuing boot."
             '';
-          };
+          in
+          lib.mkMerge [
+            {
+              fileSystems.${persistPath}.neededForBoot = true;
 
-          security.sudo.extraConfig = ''
-            # rollback results in sudo lectures after each reboot
-            Defaults lecture = never
-          '';
+              boot.initrd = {
+                enable = true;
+                supportedFilesystems = [ "btrfs" ];
+              };
 
-          age.identityPaths = [ "${persistPath}/etc/agenix_pq_key" ];
+              security.sudo.extraConfig = ''
+                # rollback results in sudo lectures after each reboot
+                Defaults lecture = never
+              '';
 
-          disko.simple.impermanence.persist = {
-            directories = [
-              "/var/lib/nixos"
-              "/var/lib/systemd/coredump"
-              "/root"
-            ]
-            ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth";
-            files = [
-              "/etc/machine-id"
-              "/etc/ssh/ssh_host_ed25519_key"
-              "/etc/ssh/ssh_host_ed25519_key.pub"
-              "/etc/ssh/ssh_host_rsa_key"
-              "/etc/ssh/ssh_host_rsa_key.pub"
-              "/etc/agenix_pq_key"
-            ];
-          };
-        })
+              age.identityPaths = [ "${persistPath}/etc/agenix_pq_key" ];
+
+              disko.simple.impermanence.persist = {
+                directories = [
+                  "/var/lib/nixos"
+                  "/var/lib/systemd/coredump"
+                  "/root"
+                ]
+                ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth";
+                files = [
+                  "/etc/machine-id"
+                  "/etc/ssh/ssh_host_ed25519_key"
+                  "/etc/ssh/ssh_host_ed25519_key.pub"
+                  "/etc/ssh/ssh_host_rsa_key"
+                  "/etc/ssh/ssh_host_rsa_key.pub"
+                  "/etc/agenix_pq_key"
+                ];
+              };
+            }
+            (lib.mkIf (!config.boot.initrd.systemd.enable) {
+              boot.initrd.postResumeCommands = lib.mkAfter wipeScript;
+            })
+            (lib.mkIf config.boot.initrd.systemd.enable {
+              boot.initrd.systemd.services."impermanence-wipe" = {
+                description = "Impermanence Btrfs root rollback";
+                wantedBy = [ "initrd.target" ];
+                before = [ "sysroot.mount" ];
+                unitConfig.DefaultDependencies = "no";
+                serviceConfig.Type = "oneshot";
+                script = wipeScript;
+              };
+            })
+          ]
+        ))
       ]
     ))
     {

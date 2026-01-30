@@ -30,5 +30,9 @@
       allowUnsigned = true;
       pkiBundle = "/etc/secureboot";
     };
+
+    disko.simple.impermanence.persist.directories = [
+      "/etc/secureboot"
+    ];
   };
 }
