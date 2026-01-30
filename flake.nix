@@ -8,7 +8,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v1.0.0";
+      url = "github:nix-community/lanzaboote/1902463415745b992dbaf301b2a35a1277be1584";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     deploy-rs = {
