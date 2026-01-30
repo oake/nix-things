@@ -5,7 +5,12 @@
   ...
 }:
 {
-  options.profiles.workstation.enable = lib.mkEnableOption "core workstation profile";
+  options.profiles.workstation = {
+    enable = lib.mkEnableOption "core workstation profile";
+    personal.enable = lib.mkEnableOption "personal workstation profile" // {
+      default = config.profiles.workstation.enable;
+    };
+  };
 
   config = lib.mkIf config.profiles.workstation.enable {
     environment.systemPackages = [
