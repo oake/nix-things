@@ -208,6 +208,8 @@ in
             {
               fileSystems.${persistPath}.neededForBoot = true;
 
+              environment.systemPackages = [ pkgs.btrfs-progs ];
+
               boot.initrd = {
                 enable = true;
                 supportedFilesystems = [ "btrfs" ];
