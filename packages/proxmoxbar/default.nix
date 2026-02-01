@@ -14,11 +14,11 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "1.0.12";
+  version = "1.0.14";
 
   src = fetchurl {
     url = "https://github.com/ryzenixx/proxmoxbar-macos/releases/download/v${finalAttrs.version}/ProxmoxBar.dmg";
-    hash = "sha256-pFRICqV5FANMhB1U8A1iwVfhaneu3PnLSi3yM1gHMvk=";
+    hash = "sha256-F6PN+LIJJVJSd+8NmEZAvW32+C/rQFQHbBcDTp7toq4=";
   };
   sourceRoot = ".";
 
