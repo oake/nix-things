@@ -76,5 +76,14 @@ deploy *args: _add
 @inspect:
   nix run nixpkgs#nix-inspect -- -p .
 
+# rebuild and switch this host to new configuration
+[group('tools')]
+@rebuild: _add
+    if [ -f /etc/NIXOS ]; then \
+        sudo nixos-rebuild switch --flake .; \
+    else \
+        sudo darwin-rebuild switch --flake .; \
+    fi
+
 @_add:
     git add --all
