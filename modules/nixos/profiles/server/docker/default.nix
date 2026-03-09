@@ -27,7 +27,6 @@ in
           enable = true;
 
           daemon.settings = {
-            live-restore = true; # keep containers running when dockerd is restarted
             default-address-pools = [
               {
                 base = "172.24.0.0/13";
