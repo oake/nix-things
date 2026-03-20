@@ -286,6 +286,30 @@ let
       };
     };
   };
+
+  mkConfig =
+    let
+      cfg = config.services.streamdeck.config;
+    in
+    renameKeys (cleanAttrs (
+      cfg
+      // {
+        auto_reload = false;
+        pages = lib.mapAttrs transformPage cfg.pages;
+      }
+    )) renameMap;
+
+  fixConfigFile =
+    name: input:
+    pkgs.runCommand name
+      {
+        src = input;
+        nativeBuildInputs = [ pkgs.yq-go ];
+        preferLocalBuild = true;
+      }
+      ''
+        yq eval "(.pages[].keys) |= (to_entries | map(.key |= tonumber) | from_entries)" "$src" > "$out"
+      '';
 in
 {
   mkConfigOption = mkOption {
@@ -411,27 +435,20 @@ in
     };
   };
 
-  mkConfig =
+  mkConfigFile =
     let
-      cfg = config.services.streamdeck.config;
+      yaml = pkgs.formats.yaml { };
+      brokenConfigFile = yaml.generate "streamdeck-config-broken.yaml" mkConfig;
     in
-    renameKeys (cleanAttrs (
-      cfg
-      // {
-        auto_reload = false;
-        pages = lib.mapAttrs transformPage cfg.pages;
-      }
-    )) renameMap;
+    fixConfigFile "streamdeck-config.yaml" brokenConfigFile;
 
-  fixConfig =
-    name: input:
-    pkgs.runCommand name
-      {
-        src = input;
-        nativeBuildInputs = [ pkgs.yq-go ];
-        preferLocalBuild = true;
-      }
-      ''
-        yq eval "(.pages[].keys) |= (to_entries | map(.key |= tonumber) | from_entries)" "$src" > "$out"
-      '';
+  renderConfigFile = pkgs.writeShellScript "streamdeck-render-config" ''
+    set -euo pipefail
+
+    template="$1"
+    output="$2"
+
+    mkdir -p "$(dirname "$output")"
+    ${lib.getExe pkgs.yq-go} eval '(.. | select(tag == "!!str")) |= envsubst(nu,ff)' "$template" > "$output"
+  '';
 }

@@ -6,12 +6,15 @@
 }:
 let
   cfg = config.services.streamdeck;
-  yaml = pkgs.formats.yaml { };
 
-  inherit (import ./config.nix { inherit lib config pkgs; }) mkConfigOption mkConfig fixConfig;
+  inherit (import ./config.nix { inherit lib config pkgs; })
+    mkConfigOption
+    mkConfigFile
+    renderConfigFile
+    ;
 
-  brokenConfigFile = yaml.generate "streamdeck-config-broken.yaml" mkConfig;
-  configFile = fixConfig "streamdeck-config.yaml" brokenConfigFile;
+  configFile = mkConfigFile;
+  renderedConfigFile = "%t/streamdeck/config.yaml";
 in
 {
   options.services.streamdeck = with lib; {
@@ -38,6 +41,17 @@ in
       default = null;
       description = ''
         Specify Stream Deck to use (use streamdeck --list to find ID), default first found
+      '';
+    };
+
+    secretsPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = literalExpression "config.age.secrets.streamdeck-env.path";
+      description = ''
+        Optional env file with KEY=value pairs. When set, Stream Deck config
+        strings may include placeholders like \''${BTN_NAME}, which are
+        substituted at runtime before the service starts.
       '';
     };
 
@@ -85,12 +99,17 @@ in
         ExecStart =
           let
             args = [
-              "--config=${configFile}"
+              "--config=${if cfg.secretsPath == null then configFile else renderedConfigFile}"
               "--log-level=${cfg.logLevel}"
             ]
             ++ lib.optional (cfg.productId != null) "--product-id=${cfg.productId}";
           in
           "${lib.getExe cfg.package} ${lib.escapeShellArgs args}";
+      }
+      // lib.optionalAttrs (cfg.secretsPath != null) {
+        EnvironmentFile = cfg.secretsPath;
+        RuntimeDirectory = "streamdeck";
+        ExecStartPre = "${renderConfigFile} ${configFile} ${renderedConfigFile}";
       };
     };
   };
