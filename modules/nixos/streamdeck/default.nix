@@ -44,6 +44,14 @@ in
       '';
     };
 
+    user = mkOption {
+      type = types.str;
+      example = "maeve";
+      description = ''
+        The user allowed to run the Stream Deck service.
+      '';
+    };
+
     secretsPath = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -78,6 +86,10 @@ in
     systemd.user.paths.streamdeck-autostart = {
       description = "Launch Stream Deck tool on login";
 
+      unitConfig = {
+        ConditionUser = cfg.user;
+      };
+
       wantedBy = [ "default.target" ];
 
       pathConfig = {
@@ -90,6 +102,7 @@ in
       description = "Stream Deck tool";
 
       unitConfig = {
+        ConditionUser = cfg.user;
         StopWhenUnneeded = true;
       };
 
