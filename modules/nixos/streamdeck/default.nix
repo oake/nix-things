@@ -13,8 +13,16 @@ let
     renderConfigFile
     ;
 
-  configFile = mkConfigFile;
+  generatedConfigFile = mkConfigFile;
   renderedConfigFile = "%t/streamdeck/config.yaml";
+
+  configFile =
+    if cfg.configPath != null then
+      cfg.configPath
+    else if cfg.secretsPath != null then
+      renderedConfigFile
+    else
+      generatedConfigFile;
 in
 {
   options.services.streamdeck = with lib; {
@@ -60,6 +68,16 @@ in
         Optional env file with KEY=value pairs. When set, Stream Deck config
         strings may include placeholders like \''${BTN_NAME}, which are
         substituted at runtime before the service starts.
+      '';
+    };
+
+    configPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "/home/maeve/streamdeck-test.yaml";
+      description = ''
+        Optional config file path. When set, this path is used instead of
+        auto-generating a config file.
       '';
     };
 
@@ -112,7 +130,7 @@ in
         ExecStart =
           let
             args = [
-              "--config=${if cfg.secretsPath == null then configFile else renderedConfigFile}"
+              "--config=${configFile}"
               "--log-level=${cfg.logLevel}"
             ]
             ++ lib.optional (cfg.productId != null) "--product-id=${cfg.productId}";
@@ -122,7 +140,7 @@ in
       // lib.optionalAttrs (cfg.secretsPath != null) {
         EnvironmentFile = cfg.secretsPath;
         RuntimeDirectory = "streamdeck";
-        ExecStartPre = "${renderConfigFile} ${configFile} ${renderedConfigFile}";
+        ExecStartPre = "${renderConfigFile} ${generatedConfigFile} ${renderedConfigFile}";
       };
     };
   };
