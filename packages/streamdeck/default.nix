@@ -25,6 +25,10 @@ buildGoModule {
 
   vendorHash = "sha256-dzgCf+ZAI6OOLs5Umitd4iJnaQher7GNXMzgtEGT5J4=";
 
+  patches = [
+    ./fix-stderr.patch
+  ];
+
   buildInputs = [
     udev
   ];

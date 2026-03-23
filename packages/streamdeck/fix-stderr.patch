@@ -1,0 +1,13 @@
+diff --git a/cmd/streamdeck/action_exec.go b/cmd/streamdeck/action_exec.go
+index d6736eb..e54e848 100644
+--- a/cmd/streamdeck/action_exec.go
++++ b/cmd/streamdeck/action_exec.go
+@@ -31,7 +31,7 @@ func (actionExec) Execute(attributes attributeCollection) error {
+ 	}
+ 
+ 	if attributes.AttachStderr {
+-		command.Stdout = os.Stderr
++		command.Stderr = os.Stderr
+ 	}
+ 
+ 	if err := command.Start(); err != nil {
