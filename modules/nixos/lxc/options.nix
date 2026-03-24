@@ -52,6 +52,11 @@
       default = [ ];
       description = "List of mounts to configure for the container";
     };
+    recursiveMounts = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.str);
+      default = { };
+      description = "Set of recursive bind mounts to configure for the container";
+    };
     devices = lib.mkOption {
       type = lib.types.listOf (lib.types.str);
       default = [ ];

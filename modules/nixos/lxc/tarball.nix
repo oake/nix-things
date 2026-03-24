@@ -21,6 +21,13 @@ let
     lib.imap0 (i: d: "dev${toString i}: ${d}") config.lxc.devices
   );
 
+  recursiveMountsLines = lib.concatStringsSep "\n" (
+    lib.mapAttrsToList (
+      hostPath: mountPoint:
+      "lxc.mount.entry: ${hostPath} ${(lib.strings.removePrefix "/" mountPoint)} none rbind,create=dir 0 0"
+    ) config.lxc.recursiveMounts
+  );
+
   # i wanna talk a bit about why we add hwaddr=00:00:00:00:00:00 down there.
   #
   # when you restore an LXC backup, you can tick off "unique" and PVE would generate a new one
@@ -49,6 +56,7 @@ let
       rootfs: ${config.lxc.storageName}:unknown,size=${toString config.lxc.diskSize}G
       ${mountsLines}
       ${devicesLines}
+      ${recursiveMountsLines}
       ${config.lxc.extraConfig}
     ''
     + lib.optionalString config.lxc.unprivileged "unprivileged: 1\n"
