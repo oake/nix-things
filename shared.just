@@ -80,9 +80,9 @@ deploy *args: _add
 [group('tools')]
 @rebuild: _add
     if [ -f /etc/NIXOS ]; then \
-        sudo nixos-rebuild switch --flake .; \
+        sudo nixos-rebuild switch --option always-allow-substitutes true --flake .; \
     else \
-        sudo darwin-rebuild switch --flake .; \
+        sudo darwin-rebuild switch --option always-allow-substitutes true --flake .; \
     fi
 
 @_add:
