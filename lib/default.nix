@@ -116,9 +116,10 @@ in
       mkActivate =
         cfg:
         let
+          inherit (cfg.pkgs.stdenv) isDarwin;
           system = cfg.pkgs.stdenv.hostPlatform.system;
         in
-        deployPkgs.${system}.deploy-rs.lib.activate.nixos cfg;
+        deployPkgs.${system}.deploy-rs.lib.activate.${if isDarwin then "darwin" else "nixos"} cfg;
       nodes = lib.mapAttrs (_: cfg: {
         hostname = cfg.config.deploy.fqdn;
         profiles.system = {
