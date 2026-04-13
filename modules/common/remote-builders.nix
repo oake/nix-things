@@ -42,6 +42,17 @@ let
       ];
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU1nbnJUVWFRN3hKalRWSG1qcXptZWJKMG83bnZmYTZkOXVSV3NTWEYwTTEgbHhjLWJ1aWxkZXI=";
     };
+    fruity = {
+      hostName = "fruity.me.ow";
+      system = "aarch64-darwin";
+      maxJobs = 10;
+      supportedFeatures = [
+        "benchmark"
+        "big-parallel"
+        "nixos-test"
+      ];
+      publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUQ4UFpMWmQzSWFNTnRGN1JVWlo3c2hQSFdHeEo5cnFWSWFwM1RXazROZ2ggZnJ1aXR5";
+    };
   };
 in
 {
