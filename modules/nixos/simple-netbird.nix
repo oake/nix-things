@@ -34,61 +34,71 @@ in
       };
     };
 
-  config = lib.mkIf cfg.enable {
-    services.netbird.clients.default = {
-      environment =
-        lib.optionalAttrs (cfg.managementUrl != null) {
-          NB_MANAGEMENT_URL = cfg.managementUrl;
-        }
-        // lib.optionalAttrs (cfg.adminUrl != null) {
-          NB_ADMIN_URL = cfg.adminUrl;
-        }
-        // lib.optionalAttrs (cfg.setupKeyFile != null) {
-          NB_SETUP_KEY_FILE = cfg.setupKeyFile;
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      (lib.mkIf config.lxc.enable {
+        # all of this is needed for Magic DNS to function in LXCs
+        networking.useHostResolvConf = false;
+        services.resolved.enable = true;
+        security.polkit.enable = true;
+      })
+      {
+        services.netbird.clients.default = {
+          environment =
+            lib.optionalAttrs (cfg.managementUrl != null) {
+              NB_MANAGEMENT_URL = cfg.managementUrl;
+            }
+            // lib.optionalAttrs (cfg.adminUrl != null) {
+              NB_ADMIN_URL = cfg.adminUrl;
+            }
+            // lib.optionalAttrs (cfg.setupKeyFile != null) {
+              NB_SETUP_KEY_FILE = cfg.setupKeyFile;
+            };
+          name = "netbird";
+          interface = "nb0";
+          port = 51820;
+          logLevel = "warn";
         };
-      name = "netbird";
-      interface = "nb0";
-      port = 51820;
-      logLevel = "warn";
-    };
 
-    systemd.services.netbird.postStart = lib.optionalString (cfg.setupKeyFile != null) ''
-      set -x
-      nb='${lib.getExe config.services.netbird.clients.default.wrapper}'
+        systemd.services.netbird.postStart = lib.optionalString (cfg.setupKeyFile != null) ''
+          set -x
+          nb='${lib.getExe config.services.netbird.clients.default.wrapper}'
 
-      fetch_status() {
-        status="$("$nb" status 2>&1)"
+          fetch_status() {
+            status="$("$nb" status 2>&1)"
+          }
+
+          print_status() {
+            test -n "$status" || refresh_status
+            cat <<EOF
+          $status
+          EOF
+          }
+
+          refresh_status() {
+            fetch_status
+            print_status
+          }
+
+          main() {
+            print_status | ${lib.getExe pkgs.gnused} 's/^/STATUS:INIT: /g'
+            while refresh_status | grep --quiet 'Disconnected' ; do
+              sleep 1
+            done
+            print_status | ${lib.getExe pkgs.gnused} 's/^/STATUS:WAIT: /g'
+
+            if print_status | grep --quiet 'NeedsLogin' ; then
+              "$nb" up
+            fi
+          }
+
+          main "$@"
+        '';
+
+        disko.simple.impermanence.persist.directories = [
+          "/var/lib/netbird"
+        ];
       }
-
-      print_status() {
-        test -n "$status" || refresh_status
-        cat <<EOF
-      $status
-      EOF
-      }
-
-      refresh_status() {
-        fetch_status
-        print_status
-      }
-
-      main() {
-        print_status | ${lib.getExe pkgs.gnused} 's/^/STATUS:INIT: /g'
-        while refresh_status | grep --quiet 'Disconnected' ; do
-          sleep 1
-        done
-        print_status | ${lib.getExe pkgs.gnused} 's/^/STATUS:WAIT: /g'
-
-        if print_status | grep --quiet 'NeedsLogin' ; then
-          "$nb" up
-        fi
-      }
-
-      main "$@"
-    '';
-
-    disko.simple.impermanence.persist.directories = [
-      "/var/lib/netbird"
-    ];
-  };
+    ]
+  );
 }
