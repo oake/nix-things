@@ -5,6 +5,7 @@
 }:
 {
   imports = [
+    ./zrepl
     ./share
     ./net-router
     ./monitor
