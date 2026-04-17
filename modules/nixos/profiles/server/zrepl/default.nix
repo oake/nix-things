@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  unstable,
   ...
 }:
 let
@@ -13,7 +14,7 @@ in
 
     pruningKeepSchedule = lib.mkOption {
       type = lib.types.str;
-      default = "1x1h(keep=all) | 24x1h | 30x1d | 3x30d";
+      example = "1x1h(keep=all) | 24x1h | 30x1d | 3x30d";
       description = "Pruning grid schedule used for snapshotting and pulling.";
     };
 
@@ -32,7 +33,7 @@ in
       };
       cron = lib.mkOption {
         type = lib.types.str;
-        default = "0 * * * *";
+        example = "0 * * * *";
         description = "Cron schedule for snapshotting (every hour by default).";
       };
     };
@@ -45,7 +46,7 @@ in
       };
       interval = lib.mkOption {
         type = lib.types.str;
-        default = "1h";
+        example = "1h";
         description = "Interval for local replication.";
       };
     };
@@ -62,7 +63,7 @@ in
               };
               interval = lib.mkOption {
                 type = lib.types.str;
-                default = "24h";
+                example = "24h";
                 description = "Interval for pulling from this remote server.";
               };
             };
@@ -159,6 +160,7 @@ in
           in
           {
             enable = true;
+            package = unstable.zrepl;
             settings.jobs =
               (lib.optional (cfg.snapshotting.filesystems != [ ]) {
                 type = "snap";
