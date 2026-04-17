@@ -1,22 +1,13 @@
 {
   flake,
-  inputs,
-}:
-{
-  pkgs,
   lib,
+  config,
   ...
 }:
 let
-  unstable = import inputs.nix-unstable {
-    system = pkgs.stdenv.hostPlatform.system;
-    config.allowUnfree = true;
-  };
+  hostPlatform = lib.systems.elaborate config.nixpkgs.hostPlatform;
 in
 {
-  # allow unfree pkgs
-  nixpkgs.config.allowUnfree = true;
-
   # flakes
   nix.settings.experimental-features = [
     "nix-command"
@@ -24,10 +15,9 @@ in
   ];
 
   # comfy extra args
-  _module.args = with pkgs.stdenv.hostPlatform; {
-    inherit unstable;
-    onlyArm = lib.optionals isAarch64;
-    onlyX86 = lib.optionals isx86_64;
+  _module.args = {
+    onlyArm = lib.optionals hostPlatform.isAarch64;
+    onlyX86 = lib.optionals hostPlatform.isx86_64;
   };
 
   # auto gc
@@ -41,11 +31,6 @@ in
     owner = "oake";
     repo = "nix-things";
   };
-
-  # overlays
-  nixpkgs.overlays = [
-    flake.overlays.default
-  ];
 
   # avoid building locally
   nix.settings.always-allow-substitutes = true;
