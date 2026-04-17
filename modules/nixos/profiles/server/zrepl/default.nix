@@ -26,10 +26,10 @@ in
     };
 
     snapshotting = {
-      filesystems = lib.mkOption {
+      datasets = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
-        description = "List of filesystems to snapshot (see zrepl docs).";
+        description = "List of datasets to snapshot (see zrepl docs).";
       };
       cron = lib.mkOption {
         type = lib.types.str;
@@ -39,10 +39,10 @@ in
     };
 
     localJob = {
-      filesystems = lib.mkOption {
+      datasets = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
-        description = "List of filesystems to replicate locally (see zrepl docs).";
+        description = "List of datasets to replicate locally (see zrepl docs).";
       };
       interval = lib.mkOption {
         type = lib.types.str;
@@ -81,9 +81,9 @@ in
                 example = ":8888";
                 description = "Address to serve on.";
               };
-              filesystems = lib.mkOption {
+              datasets = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
-                description = "List of filesystems to serve.";
+                description = "List of datasets to serve.";
               };
               clientAddress = lib.mkOption {
                 type = lib.types.str;
@@ -120,7 +120,7 @@ in
       {
         assertions = [
           {
-            assertion = (cfg.localJob.filesystems == [ ] && cfg.remoteJobs.pull == { }) || cfg.dataset != null;
+            assertion = (cfg.localJob.datasets == [ ] && cfg.remoteJobs.pull == { }) || cfg.dataset != null;
             message = "zrepl.dataset must be set when local replication or pull jobs are configured";
           }
         ];
@@ -162,10 +162,10 @@ in
             enable = true;
             package = unstable.zrepl;
             settings.jobs =
-              (lib.optional (cfg.snapshotting.filesystems != [ ]) {
+              (lib.optional (cfg.snapshotting.datasets != [ ]) {
                 type = "snap";
                 name = "snapshot";
-                filesystems = mapFs cfg.snapshotting.filesystems;
+                filesystems = mapFs cfg.snapshotting.datasets;
                 snapshotting = {
                   type = "cron";
                   cron = cfg.snapshotting.cron;
@@ -174,7 +174,7 @@ in
                 pruning.keep = keepGrid;
               })
               ++ (
-                if cfg.localJob.filesystems != [ ] then
+                if cfg.localJob.datasets != [ ] then
                   [
                     {
                       type = "source";
@@ -183,7 +183,7 @@ in
                         type = "local";
                         listener_name = "source-local";
                       };
-                      filesystems = mapFs cfg.localJob.filesystems;
+                      filesystems = mapFs cfg.localJob.datasets;
                       snapshotting = {
                         type = "manual";
                       };
@@ -238,7 +238,7 @@ in
                     ${job.clientAddress} = name;
                   };
                 };
-                filesystems = mapFs job.filesystems;
+                filesystems = mapFs job.datasets;
                 snapshotting = {
                   type = "manual";
                 };
