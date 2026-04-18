@@ -52,6 +52,6 @@ buildDotnetModule (finalAttrs: {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ rhoriguchi ];
     mainProgram = "SteamPrefill";
-    platforms = lib.platforms.all;
+    platforms = lib.platforms.linux;
   };
 })
