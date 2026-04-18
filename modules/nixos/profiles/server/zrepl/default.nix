@@ -247,6 +247,9 @@ in
                     ${job.clientAddress} = name;
                   };
                 };
+                send = {
+                  compressed = true;
+                };
                 filesystems = mapFs job.datasets;
                 snapshotting = {
                   type = "manual";
