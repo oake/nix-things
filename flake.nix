@@ -3,10 +3,6 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nix-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    blueprint = {
-      url = "github:numtide/blueprint";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     lanzaboote = {
       url = "github:nix-community/lanzaboote/1902463415745b992dbaf301b2a35a1277be1584";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,38 +22,5 @@
     };
   };
 
-  outputs =
-    inputs:
-    let
-      inherit (inputs.nixpkgs) lib;
-
-      blueprint = inputs.blueprint {
-        inherit inputs;
-        systems = [
-          "aarch64-linux"
-          "x86_64-linux"
-          "aarch64-darwin"
-        ];
-        nixpkgs.config.allowUnfree = true;
-      };
-
-      mkModules =
-        modules:
-        modules
-        // {
-          default = {
-            imports = lib.attrsets.attrValues modules;
-          };
-        };
-    in
-    {
-      inherit (blueprint) checks packages lib;
-
-      commonModules = mkModules blueprint.modules.common;
-      nixosModules = mkModules blueprint.nixosModules;
-      darwinModules = mkModules blueprint.darwinModules;
-      homeModules = mkModules blueprint.homeModules;
-
-      overlays.default = import ./overlay.nix;
-    };
+  outputs = inputs: (import ./lib { inherit inputs; }).mkFlake { inherit inputs; };
 }
