@@ -66,6 +66,12 @@ in
                 example = "24h";
                 description = "Interval for pulling from this remote server.";
               };
+              bandwidthLimit = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                example = "23.5 MiB";
+                description = "Bandwidth limit for pulling from this remote server.";
+              };
             };
           }
         );
@@ -217,9 +223,12 @@ in
                   type = "tcp";
                   address = job.address;
                 };
+
                 recv = {
                   placeholder.encryption = "off";
-                };
+                }
+                // (lib.optionalAttrs (job.bandwidthLimit != null) { bandwidth_limit.max = job.bandwidthLimit; });
+
                 interval = job.interval;
                 root_fs = cfg.dataset + "/" + name;
                 pruning = {
