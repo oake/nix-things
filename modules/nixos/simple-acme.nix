@@ -33,7 +33,7 @@ in
           "--dns.propagation-wait"
           "60s"
         ];
-        credentialsFile = config.age.secrets."acme-cf-credentials".path;
+        environmentFile = config.age.secrets."acme-cf-credentials".path;
       };
     };
   };
