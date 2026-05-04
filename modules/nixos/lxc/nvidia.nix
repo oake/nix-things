@@ -6,11 +6,12 @@
 }:
 let
   cfg = config.lxc.nvidia;
-  nvidia-userspace = pkgs.callPackage ./nvidia-userspace.nix {
-    nvidia-libs = cfg.package.override {
-      libsOnly = true;
-      kernel = null;
-    };
+  nvidia-userspace = pkgs.symlinkJoin {
+    name = "nvidia-userspace-${cfg.package.version}";
+    paths = [
+      cfg.package.out
+      cfg.package.bin
+    ];
   };
 in
 {
