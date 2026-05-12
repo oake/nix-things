@@ -41,6 +41,7 @@ in
         networking.useHostResolvConf = false;
         services.resolved.enable = true;
         security.polkit.enable = true;
+        systemd.services.netbird.serviceConfig.AmbientCapabilities = lib.mkAfter [ "CAP_NET_BIND_SERVICE" ];
       })
       {
         services.netbird.clients.default = {
