@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  unstable,
   ...
 }:
 let
@@ -166,7 +165,6 @@ in
           in
           {
             enable = true;
-            package = unstable.zrepl;
             settings.jobs =
               (lib.optional (cfg.snapshotting.datasets != [ ]) {
                 type = "snap";

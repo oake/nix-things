@@ -207,27 +207,13 @@ let
 
       sharedPkgs = {
         stable = eachSystem ({ pkgs, ... }: pkgs);
-      }
-      // lib.optionalAttrs (builtins.hasAttr "nix-unstable" inputs) {
-        unstable = lib.genAttrs systems (
-          system:
-          mkConfiguredPkgs {
-            input = inputs.nix-unstable;
-            inherit system nixpkgs;
-            extraOverlays = [ packagesOverlay ];
-          }
-        );
       };
 
-      # Share the per-system pkgs blueprint already instantiated, and expose
-      # a matching unstable package set when available.
+      # Share the per-system pkgs blueprint already instantiated
       hostDefaultsModule =
         { config, lib, ... }:
         {
           nixpkgs.pkgs = lib.mkDefault systemArgs.${config.nixpkgs.hostPlatform.system}.pkgs;
-          _module.args = lib.optionalAttrs (builtins.hasAttr "nix-unstable" inputs) {
-            unstable = sharedPkgs.unstable.${config.nixpkgs.hostPlatform.system};
-          };
         };
 
       home-manager =
