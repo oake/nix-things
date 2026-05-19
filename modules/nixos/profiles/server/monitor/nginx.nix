@@ -31,6 +31,9 @@ in
         upstream = [ "static://200" ];
         email.domains = [ "*" ];
         reverseProxy = true;
+        trustedProxyIP = [
+          "0.0.0.0/0"
+        ];
         setXauthrequest = true;
         keyFile = config.age.secrets."${cfg.secretsDomain}/oidc-credentials".path;
         extraConfig."whitelist-domain" = [ cfg.webDomain ];
