@@ -154,15 +154,21 @@ let
 
       packageEntriesFor =
         root:
-        (optionalPathAttrs (root + "/packages") (path: importDir path lib.id))
+        (optionalPathAttrs (root + "/packages") (
+          path: importDir path (entries: removeAttrs entries [ "kernel" ])
+        ))
         // (optionalPathAttrs (root + "/package.nix") (path: {
           default = {
             inherit path;
           };
         }));
 
+      kernelPackageEntriesFor =
+        root: optionalPathAttrs (root + "/packages/kernel") (path: importDir path lib.id);
+
       consumerPackageEntries = packageEntriesFor src;
       overlayPackageEntries = packageEntriesFor blueprintRoot // consumerPackageEntries;
+      kernelPackageEntries = kernelPackageEntriesFor blueprintRoot // kernelPackageEntriesFor src;
 
       mkPackagesForEntries =
         packageEntries: pkgs:
@@ -188,6 +194,22 @@ let
 
       packagesOverlay = final: _prev: mkOverlayPackagesFor final;
 
+      kernelPackagesOverlay = final: prev: {
+        kernelPackagesExtensions = prev.kernelPackagesExtensions ++ [
+          (
+            kernelFinal: _kernelPrev:
+            lib.mapAttrs (
+              pname:
+              { path, ... }:
+              kernelFinal.callPackage path {
+                pkgs = final;
+                inherit pname;
+              }
+            ) kernelPackageEntries
+          )
+        ];
+      };
+
       inherit
         (mkEachSystem {
           inherit
@@ -196,7 +218,10 @@ let
             nixpkgs
             systems
             ;
-          extraOverlays = [ packagesOverlay ];
+          extraOverlays = [
+            packagesOverlay
+            kernelPackagesOverlay
+          ];
           inherit
             unfilteredPackages
             ;
