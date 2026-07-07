@@ -12,7 +12,14 @@ let
     "effect"
     "multi_intensity"
     "brightness"
+    "brightness_scale"
+    "brightness_startup"
+    "multi_intensity_startup"
     "delay"
+    "breath_offset"
+    "breath_level"
+    "patrol_num"
+    "color_shift"
   ];
 
   sysfsAttrPaths = lib.concatMapStringsSep " " (attr: "/sys$env{DEVPATH}/${attr}") writableAttrs;
