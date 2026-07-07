@@ -26,6 +26,12 @@ in
       default = "users";
       description = "Group allowed to write the Steam-facing valve-leds sysfs attributes.";
     };
+
+    debugLog = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Whether to enable debug logging for writes handled by the leds-valve-shim kernel module.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -36,6 +42,10 @@ in
     boot.kernelModules = [
       "leds-valve-shim"
     ];
+
+    boot.extraModprobeConfig = lib.mkIf cfg.debugLog ''
+      options leds-valve-shim debug_log=1
+    '';
 
     services.udev.packages = [
       (pkgs.writeTextFile {
