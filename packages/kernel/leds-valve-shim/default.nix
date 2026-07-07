@@ -10,7 +10,7 @@ let
     stdenv
     fetchFromGitHub
     ;
-  version = "0.1.0";
+  version = "0.1.1";
 in
 
 stdenv.mkDerivation {
@@ -20,7 +20,7 @@ stdenv.mkDerivation {
     owner = "anna-oake";
     repo = "leds-valve-shim";
     tag = "v${version}";
-    hash = "sha256-GLaDOSBXsYL+LRQ9MmBa4s3YtkblVJA9R+3xaoNyM1Q=";
+    hash = "sha256-GLaDOStamVWjHiWz0BeFadJZJU3MapKP6CqcR3HCLSs=";
   };
 
   hardeningDisable = [ "pic" ];
