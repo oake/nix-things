@@ -9,7 +9,7 @@ let
     fetchFromGitHub
     ;
   inherit (pkgs.qt6Packages) qtbase qmake wrapQtAppsHook;
-  version = "0.1.0";
+  version = "0.2.0";
 in
 stdenv.mkDerivation {
   inherit pname version;
@@ -18,7 +18,7 @@ stdenv.mkDerivation {
     owner = "anna-oake";
     repo = "openrgb-steam-sink";
     tag = "v${version}";
-    hash = "sha256-kitty8tlNg0SsaDHYhaF2Kp83Y66xVaGbGB0ig6AkcQ=";
+    hash = "sha256-kitty5COKfjm3xNpcbFZv2JJKV6MYovYV9LRQ7cFtjQ=";
   };
 
   nativeBuildInputs = [
