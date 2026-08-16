@@ -228,7 +228,8 @@ in
                   "/var/lib/systemd/coredump"
                   "/root"
                 ]
-                ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth";
+                ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth"
+                ++ lib.optional config.services.fprintd.enable "/var/lib/fprint";
                 files = [
                   "/etc/machine-id"
                   "/etc/ssh/ssh_host_ed25519_key"
