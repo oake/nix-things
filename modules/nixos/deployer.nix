@@ -40,6 +40,11 @@ in
       example = "nixos";
       description = "Public Attic cache name.";
     };
+    atticTokenFile = mkOption {
+      type = types.strMatching "/.+";
+      example = "/run/agenix/lxc-builder/deploy-attic-token";
+      description = "Absolute runtime path to an Attic token with pull access to the cache.";
+    };
     dataPath = mkOption {
       type = types.strMatching "/.+";
       default = "/var/lib/deployer";
@@ -91,13 +96,18 @@ in
         HOME = "/root";
       };
       serviceConfig = {
+        SyslogIdentifier = "deployer";
         User = "root";
         ExecStart = "${pkgs.openssh}/bin/ssh-agent ${pkgs.writeShellScript "deployer-with-key" ''
           set -eu
           ${pkgs.openssh}/bin/ssh-add -q "$CREDENTIALS_DIRECTORY/ssh-key" < /dev/null
+          export ATTIC_TOKEN_FILE="$CREDENTIALS_DIRECTORY/attic-token"
           exec ${lib.getExe cfg.package}
         ''}";
-        LoadCredential = [ "ssh-key:${cfg.sshKeyFile}" ];
+        LoadCredential = [
+          "ssh-key:${cfg.sshKeyFile}"
+          "attic-token:${cfg.atticTokenFile}"
+        ];
         Restart = "on-failure";
         RestartSec = "10s";
         UMask = "0077";
