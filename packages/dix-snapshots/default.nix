@@ -6,8 +6,8 @@ pkgs.rustPlatform.buildRustPackage {
   src = pkgs.fetchFromGitHub {
     owner = "anna-oake";
     repo = "dix";
-    rev = "e91791f649e787b6293ee05f88dbeb69c194fbdb";
-    hash = "sha256-IQkKHDscEomnotKhz5BICz/UTFTTS5RWEti20w+xzDQ=";
+    rev = "69f91d6d29c26659fb482c628c7752e1eab30dc8";
+    hash = "sha256-UMypc/8n4fuY2Qg6kHDek+at9DW3egxY8o/tYvg7pRM=";
   };
 
   cargoHash = "sha256-m2jRDMjZTJHKbe0Ep76SFT3tV1xytThvaRAt6A0CF3A=";
