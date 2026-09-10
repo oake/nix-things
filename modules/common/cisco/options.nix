@@ -575,8 +575,11 @@ let
   deviceType = types.submodule (_: {
     options = {
       macAddress = mkOption {
-        type = types.strMatching "[0-9A-F]{12}";
-        description = "Twelve uppercase hexadecimal digits used in SEP<MAC>.cnf.xml.";
+        type = types.str;
+        description = ''
+          Twelve uppercase hexadecimal digits used as the SEP<MAC>.cnf.xml
+          filename. May be a runtime secret placeholder (`$NAME` or `''${NAME}`).
+        '';
         example = "002584A38153";
       };
       ipAddressMode = mkOption {
@@ -1744,10 +1747,11 @@ in
       example = "/run/agenix/cisco";
       description = ''
         Runtime file of KEY=value secrets (for example an agenix secret).
-        Placeholders `$NAME` or `''${NAME}` in generated XML are replaced at
-        service start. XML-special characters in values are escaped.
-        Null means no substitution; HTTP and TFTP serve the Nix store root
-        directly.
+        Placeholders `$NAME` or `''${NAME}` in generated XML and in served
+        filenames (for example `SEP$MAC.cnf.xml`) are replaced at service
+        start. XML-special characters in values are escaped in file contents,
+        not in filenames. Null means no substitution; HTTP and TFTP serve the
+        Nix store root directly.
       '';
     };
     firmware = mkOption {

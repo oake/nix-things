@@ -40,7 +40,10 @@ in
 
           ${lib.concatMapStringsSep "\n" (name: ''
             mkdir -p "$out/${builtins.dirOf name}"
-            ln -s ${pkgs.writeText (builtins.baseNameOf name) cfg.generatedConfigs.${name}} "$out/${name}"
+            ln -s ${
+              pkgs.writeText "cisco-config-${builtins.substring 0 8 (builtins.hashString "sha256" name)}"
+                cfg.generatedConfigs.${name}
+            } "$out/"${lib.escapeShellArg name}
           '') (builtins.attrNames cfg.generatedConfigs)}
 
           ${lib.optionalString (wallpaperFiles != [ ]) ''

@@ -30,7 +30,7 @@ def load_secrets(path):
     return secrets
 
 
-def substitute(text, secrets):
+def substitute(text, secrets, *, escape=True):
     missing = []
 
     def repl(match):
@@ -38,7 +38,8 @@ def substitute(text, secrets):
         if name not in secrets:
             missing.append(name)
             return match.group(0)
-        return xml_escape(secrets[name])
+        value = secrets[name]
+        return xml_escape(value) if escape else value
 
     out = PLACEHOLDER.sub(repl, text)
     if missing:
@@ -47,11 +48,22 @@ def substitute(text, secrets):
     return out
 
 
+def make_tree_writable(root):
+    # copytree preserves the Nix store's 555 directories, so unlink/rename
+    # in the temp copy would fail with EACCES.
+    root = Path(root)
+    for path in [root, *root.rglob("*")]:
+        if path.is_symlink() or not path.is_dir():
+            continue
+        path.chmod(0o700)
+
+
 def prepare_root(store_root, secrets_path):
     if secrets_path is None:
         return store_root, None
     dest = tempfile.mkdtemp(prefix="cisco-config-")
     shutil.copytree(store_root, dest, dirs_exist_ok=True, symlinks=True)
+    make_tree_writable(dest)
     secrets = load_secrets(secrets_path)
     for path in Path(dest).rglob("*.xml"):
         text = path.read_text(encoding="utf-8")
@@ -59,6 +71,16 @@ def prepare_root(store_root, secrets_path):
         if updated != text:
             path.unlink()
             path.write_text(updated, encoding="utf-8")
+    for path in sorted(Path(dest).rglob("*"), key=lambda p: len(str(p)), reverse=True):
+        if path.is_dir():
+            continue
+        new_name = substitute(path.name, secrets, escape=False)
+        if new_name == path.name:
+            continue
+        target = path.with_name(new_name)
+        if target.exists():
+            raise SystemExit(f"secret substitution would overwrite {target}")
+        path.rename(target)
     return dest, dest
 
 
