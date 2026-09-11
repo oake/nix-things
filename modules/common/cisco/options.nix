@@ -1853,6 +1853,14 @@ in
               name = "DistinctiveRingList.xml";
               value = ringList;
             }
+            {
+              name = "ringlist.xml";
+              value = ringList;
+            }
+            {
+              name = "distinctiveringlist.xml";
+              value = ringList;
+            }
           ];
       in
       lib.listToAttrs (deviceConfigs ++ auxiliaryConfigs);
