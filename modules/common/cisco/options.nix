@@ -1377,9 +1377,7 @@ let
             (element "callPickupGroupURI" cf.groupPickupURI)
             (element "meetMeServiceURI" cf.meetMeURI)
             (element "abbreviatedDialURI" cf.abbreviatedDialURI)
-            (optionalString (cf.holdStyle != null) (
-              boolElement "rfc2543Hold" (cf.holdStyle == "rfc2543")
-            ))
+            (optionalString (cf.holdStyle != null) (boolElement "rfc2543Hold" (cf.holdStyle == "rfc2543")))
             (optional01Element "callHoldRingback" cf.callHoldRingback)
             (optionalBoolElement "localCfwdEnable" cf.localCallForward)
             (optionalBoolElement "semiAttendedTransfer" cf.semiAttendedTransfer)
@@ -1457,7 +1455,9 @@ let
           (boolElement "disableSpeaker" v.disableSpeaker)
           (boolElement "disableSpeakerAndHeadset" v.disableSpeakerAndHeadset)
           (optionalString (v.pcPort != null) (element "pcPort" (if v.pcPort then 0 else 1)))
-          (optionalString (v.settingsAccess != null) (element "settingsAccess" settingsMap.${v.settingsAccess}))
+          (optionalString (v.settingsAccess != null) (
+            element "settingsAccess" settingsMap.${v.settingsAccess}
+          ))
           (optional01Element "garp" v.gratuitousArp)
           (optional01Element "voiceVlanAccess" v.voiceVlanAccess)
           (optional01Element "spanToPCPort" v.spanToPcPort)
@@ -1487,15 +1487,13 @@ let
           (optionalElement "recordingToneRemoteVolume" v.recordingToneRemoteVolume)
           (optionalElement "recordingToneDuration" v.recordingToneDuration)
           (optionalElement "moreKeyReversionTimer" v.moreKeyReversionTimer)
-          (optionalString (v.display != null) (
-            lines [
-              (element "daysDisplayNotActive" (concatMapStringsSep "," toString v.display.inactiveDays))
-              (element "displayOnTime" v.display.onTime)
-              (element "displayOnDuration" v.display.onDuration)
-              (element "displayIdleTimeout" v.display.idleTimeout)
-              (element "displayOnWhenIncomingCall" (if v.display.onForIncomingCall then 1 else 0))
-            ]
-          ))
+          (optionalString (v.display != null) (lines [
+            (element "daysDisplayNotActive" (concatMapStringsSep "," toString v.display.inactiveDays))
+            (element "displayOnTime" v.display.onTime)
+            (element "displayOnDuration" v.display.onDuration)
+            (element "displayIdleTimeout" v.display.idleTimeout)
+            (element "displayOnWhenIncomingCall" (if v.display.onForIncomingCall then 1 else 0))
+          ]))
         ]))
         (element "versionStamp" (configHash {
           device = d;
@@ -1528,21 +1526,21 @@ let
             (element "winCharSet" d.userLocale.windowsCharset)
           ])
         ))
-        (optionalString (d.networkLocale != null) (
-          lines [
-            (element "networkLocale" d.networkLocale.name)
-            (block "networkLocaleInfo" (lines [
-              (element "name" d.networkLocale.name)
-              (element "version" d.networkLocale.version)
-            ]))
-          ]
-        ))
+        (optionalString (d.networkLocale != null) (lines [
+          (element "networkLocale" d.networkLocale.name)
+          (block "networkLocaleInfo" (lines [
+            (element "name" d.networkLocale.name)
+            (element "version" d.networkLocale.version)
+          ]))
+        ]))
         (optionalString (d.deviceSecurityMode != null) (
-          element "deviceSecurityMode" {
-            non-secure = 1;
-            authenticated = 2;
-            encrypted = 3;
-          }.${d.deviceSecurityMode}
+          element "deviceSecurityMode"
+            {
+              non-secure = 1;
+              authenticated = 2;
+              encrypted = 3;
+            }
+            .${d.deviceSecurityMode}
         ))
         (optionalElement "idleTimeout" d.idleTimeout)
         (optionalElement "authenticationURL" url.authentication)
@@ -1796,24 +1794,22 @@ in
   };
 
   config = mkIf cfg.enable {
-    assertions =
-      (lib.concatLists (mapAttrsToList deviceAssertions cfg.devices))
-      ++ [
-        {
-          assertion = builtins.length (builtins.attrNames cfg.ringtones) <= 50;
-          message = "cisco: at most 50 ringtones are supported";
-        }
-        {
-          assertion = lib.all (
-            name:
-            let
-              n = builtins.stringLength name;
-            in
-            n >= 1 && n <= 25
-          ) (builtins.attrNames cfg.ringtones);
-          message = "cisco: ringtone display names must be 1-25 characters";
-        }
-      ];
+    assertions = (lib.concatLists (mapAttrsToList deviceAssertions cfg.devices)) ++ [
+      {
+        assertion = builtins.length (builtins.attrNames cfg.ringtones) <= 50;
+        message = "cisco: at most 50 ringtones are supported";
+      }
+      {
+        assertion = lib.all (
+          name:
+          let
+            n = builtins.stringLength name;
+          in
+          n >= 1 && n <= 25
+        ) (builtins.attrNames cfg.ringtones);
+        message = "cisco: ringtone display names must be 1-25 characters";
+      }
+    ];
     services.cisco.generatedConfigs =
       let
         wallpaperFiles = lib.unique (

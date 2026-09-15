@@ -9,22 +9,24 @@ let
   cfg = config.services.cisco;
   httpEnabled = cfg.enable && cfg.httpPort != null;
   tftpEnabled = cfg.enable && cfg.tftpPort != null;
-  serve = mode: port: lib.escapeShellArgs (
-    [
-      "${cfg.serveBin}/bin/cisco-serve"
-      mode
-      "--root"
-      (toString cfg.serverRoot)
-      "--bind"
-      cfg.bindHost
-      "--port"
-      (toString port)
-    ]
-    ++ lib.optionals (cfg.secretsPath != null) [
-      "--secrets"
-      cfg.secretsPath
-    ]
-  );
+  serve =
+    mode: port:
+    lib.escapeShellArgs (
+      [
+        "${cfg.serveBin}/bin/cisco-serve"
+        mode
+        "--root"
+        (toString cfg.serverRoot)
+        "--bind"
+        cfg.bindHost
+        "--port"
+        (toString port)
+      ]
+      ++ lib.optionals (cfg.secretsPath != null) [
+        "--secrets"
+        cfg.secretsPath
+      ]
+    );
 in
 {
   config = {

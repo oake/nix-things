@@ -29,61 +29,62 @@ in
   config = lib.mkMerge [
     { services.cisco.serveBin = serveBin; }
     (lib.mkIf cfg.enable {
-    services.cisco.serverRoot =
-      pkgs.runCommand "cisco-7975g-http-root"
-        {
-          nativeBuildInputs = [ pkgs.imagemagick ];
-        }
-        ''
-          mkdir -p "$out"
-          cp -R ${cfg.firmware}/. "$out/"
+      services.cisco.serverRoot =
+        pkgs.runCommand "cisco-7975g-http-root"
+          {
+            nativeBuildInputs = [ pkgs.imagemagick ];
+          }
+          ''
+            mkdir -p "$out"
+            cp -R ${cfg.firmware}/. "$out/"
 
-          ${lib.concatMapStringsSep "\n" (name: ''
-            mkdir -p "$out/${builtins.dirOf name}"
-            ln -s ${
-              pkgs.writeText "cisco-config-${builtins.substring 0 8 (builtins.hashString "sha256" name)}"
-                cfg.generatedConfigs.${name}
-            } "$out/"${lib.escapeShellArg name}
-          '') (builtins.attrNames cfg.generatedConfigs)}
+            ${lib.concatMapStringsSep "\n" (name: ''
+              mkdir -p "$out/${builtins.dirOf name}"
+              ln -s ${
+                pkgs.writeText "cisco-config-${
+                  builtins.substring 0 8 (builtins.hashString "sha256" name)
+                }" cfg.generatedConfigs.${name}
+              } "$out/"${lib.escapeShellArg name}
+            '') (builtins.attrNames cfg.generatedConfigs)}
 
-          ${lib.optionalString (wallpaperFiles != [ ]) ''
-            mkdir -p "$out/${wallpaperDirectory}"
-          ''}
-          ${lib.concatMapStringsSep "\n" (
-            wallpaperFile:
-            let
-              filename = wallpaperFilename wallpaperFile;
-            in
-            ''
-              image_info="$(magick identify -format '%m %wx%h' "${wallpaperFile}")"
-              if [ "$image_info" != "PNG 320x216" ]; then
-                echo "Cisco 7975G wallpaper must be a 320x216 PNG; ${wallpaperFile} is $image_info" >&2
+            ${lib.optionalString (wallpaperFiles != [ ]) ''
+              mkdir -p "$out/${wallpaperDirectory}"
+            ''}
+            ${lib.concatMapStringsSep "\n" (
+              wallpaperFile:
+              let
+                filename = wallpaperFilename wallpaperFile;
+              in
+              ''
+                image_info="$(magick identify -format '%m %wx%h' "${wallpaperFile}")"
+                if [ "$image_info" != "PNG 320x216" ]; then
+                  echo "Cisco 7975G wallpaper must be a 320x216 PNG; ${wallpaperFile} is $image_info" >&2
+                    exit 1
+                  fi
+                  cp "${wallpaperFile}" "$out/${wallpaperDirectory}/${filename}"
+                  magick "${wallpaperFile}" -resize '80x53!' "$out/${wallpaperDirectory}/TN-${filename}"
+              ''
+            ) wallpaperFiles}
+
+            ${lib.concatMapStringsSep "\n" (
+              file:
+              let
+                filename = ringtoneFilename file;
+              in
+              ''
+                bytes="$(wc -c < "${file}" | tr -d ' ')"
+                if [ "$bytes" -lt 240 ] || [ "$bytes" -gt 16080 ]; then
+                  echo "Cisco 7975G ringtone must be 240-16080 bytes of µ-law PCM; ${file} is $bytes bytes" >&2
                   exit 1
                 fi
-                cp "${wallpaperFile}" "$out/${wallpaperDirectory}/${filename}"
-                magick "${wallpaperFile}" -resize '80x53!' "$out/${wallpaperDirectory}/TN-${filename}"
-            ''
-          ) wallpaperFiles}
-
-          ${lib.concatMapStringsSep "\n" (
-            file:
-            let
-              filename = ringtoneFilename file;
-            in
-            ''
-              bytes="$(wc -c < "${file}" | tr -d ' ')"
-              if [ "$bytes" -lt 240 ] || [ "$bytes" -gt 16080 ]; then
-                echo "Cisco 7975G ringtone must be 240-16080 bytes of µ-law PCM; ${file} is $bytes bytes" >&2
-                exit 1
-              fi
-              if [ $((bytes % 240)) -ne 0 ]; then
-                echo "Cisco 7975G ringtone size must be divisible by 240; ${file} is $bytes bytes" >&2
-                exit 1
-              fi
-              cp "${file}" "$out/${filename}"
-            ''
-          ) ringtoneFiles}
-        '';
+                if [ $((bytes % 240)) -ne 0 ]; then
+                  echo "Cisco 7975G ringtone size must be divisible by 240; ${file} is $bytes bytes" >&2
+                  exit 1
+                fi
+                cp "${file}" "$out/${filename}"
+              ''
+            ) ringtoneFiles}
+          '';
     })
   ];
 }
