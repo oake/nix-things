@@ -23,6 +23,7 @@ in
         KEY = cfg.sshKey;
         TOKEN_FILE = "%d/token";
         DISABLE_SSH = "true";
+        SKIP_GPU = lib.boolToString (cfg.gpu == null);
       }
       // lib.optionalAttrs (cfg.namePrefixes != [ ]) {
         SYSTEM_NAME = lib.concatStringsSep " / " (cfg.namePrefixes ++ [ config.networking.hostName ]);

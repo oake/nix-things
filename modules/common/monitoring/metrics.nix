@@ -26,7 +26,7 @@
         ]
       );
       default = null;
-      description = "GPU monitoring backend. Null leaves Beszel's automatic detection unchanged.";
+      description = "GPU monitoring backend. Null disables GPU collection.";
     };
     targetUrl = lib.mkOption {
       type = lib.types.str;

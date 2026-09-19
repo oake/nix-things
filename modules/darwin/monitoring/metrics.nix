@@ -34,6 +34,7 @@ in
           TOKEN_FILE = cfg.tokenFile;
           DATA_DIR = "/var/lib/beszel-agent";
           DISABLE_SSH = "true";
+          SKIP_GPU = lib.boolToString (cfg.gpu == null);
           SKIP_SYSTEMD = "true";
           PATH =
             lib.makeBinPath ([ pkgs.smartmontools ] ++ lib.optional (cfg.gpu == "apple") pkgs.macmon)
