@@ -7,34 +7,23 @@ let
   cfg = config.monitoring;
 in
 {
-  options.monitoring = {
-    machineType = lib.mkOption {
-      type = lib.types.enum [
-        "local"
-        "remote"
-        "mobile"
-      ];
-      default = "local";
+  options.monitoring.logs = {
+    target = lib.mkOption {
+      type = lib.types.str;
+      description = "Hostname or IP address to push messages to";
+    };
+    port = lib.mkOption {
+      type = lib.types.int;
+      default = 12201;
+      description = "Port of a GELF TCP input to push messages to";
     };
 
-    logs = {
-      target = lib.mkOption {
-        type = lib.types.str;
-        description = "Hostname or IP address to push messages to";
-      };
-      port = lib.mkOption {
-        type = lib.types.int;
-        default = 12201;
-        description = "Port of a GELF TCP input to push messages to";
-      };
+    systemd = {
+      enable = lib.mkEnableOption "pushing systemd logs to SIEM";
+    };
 
-      systemd = {
-        enable = lib.mkEnableOption "pushing systemd logs to SIEM";
-      };
-
-      docker = {
-        enable = lib.mkEnableOption "pushing Docker logs to SIEM";
-      };
+    docker = {
+      enable = lib.mkEnableOption "pushing Docker logs to SIEM";
     };
   };
   config = lib.mkMerge [

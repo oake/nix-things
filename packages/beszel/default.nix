@@ -16,6 +16,9 @@ buildGo127Module (finalAttrs: {
   inherit pname;
   version = "0.19.0";
 
+  # Enable the NVML collector on glibc-based Linux builds.
+  tags = lib.optionals stdenv.hostPlatform.isGnu [ "glibc" ];
+
   src = fetchFromGitHub {
     owner = "henrygd";
     repo = "beszel";
