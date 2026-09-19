@@ -14,7 +14,7 @@ let
 in
 buildGo127Module (finalAttrs: {
   inherit pname;
-  version = "0.19.0";
+  version = "0.20.0";
 
   # Enable the NVML collector on glibc-based Linux builds.
   tags = lib.optionals stdenv.hostPlatform.isGnu [ "glibc" ];
@@ -23,7 +23,7 @@ buildGo127Module (finalAttrs: {
     owner = "henrygd";
     repo = "beszel";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-KwC94IeXZtb8ygKxQR86dy+MyrwGu/aa2t+rmpD+0IE=";
+    hash = "sha256-F7N9IVqOk+pNrH1wIqkNthLNhqW+HmTkJB43RwBMWpo=";
   };
 
   webui = buildNpmPackage {
@@ -60,7 +60,7 @@ buildGo127Module (finalAttrs: {
     npmDepsHash = "sha256-mYAD8FrQwa+F/VgGxFpe8vqucfZaM0PmY+gJJqw1IKk=";
   };
 
-  vendorHash = "sha256-HhkqTQpmf8EQ9/fJN56OTovI+Zufxxy/tuNH6Z+mxC4=";
+  vendorHash = "sha256-rIDsv9BL4k04dMXm0Sqbdjt+W98SSGEaWYP/laBVFrk=";
 
   preBuild = ''
     mkdir -p internal/site/dist
@@ -72,11 +72,16 @@ buildGo127Module (finalAttrs: {
       skippedTests = [
         # This subtest assumes enough host CPUs for an 8s CPU delta over 1s to stay below 100%.
         "TestServiceUpdateCPUPercent/subsequent_call_calculates_CPU_percentage"
+        # The temporary rocm-smi executable can fail with ETXTBSY on Linux builders.
+        "TestCollectorStartHelpers/rocm-smi_collector"
+      ]
+      ++ lib.optionals stdenv.hostPlatform.isLinux [
+        # Containerized builders may deny this ioctl with EPERM instead of ENOTTY.
+        "TestIoctlDeviceSizeFailure"
       ]
       ++ lib.optionals stdenv.hostPlatform.isDarwin [
         "TestCollectorStartHelpers/nvtop_collector"
         "TestCollectorStartHelpers/nvidia-smi_collector"
-        "TestCollectorStartHelpers/rocm-smi_collector"
         "TestCollectorStartHelpers/tegrastats_collector"
         "TestNewGPUManagerPriorityNvtopFallback"
         "TestNewGPUManagerPriorityMixedCollectors"
