@@ -7,34 +7,15 @@ let
   cfg = config.monitoring;
 in
 {
-  options.monitoring.logs = {
-    target = lib.mkOption {
-      type = lib.types.str;
-      description = "Hostname or IP address to push messages to";
-    };
-    port = lib.mkOption {
-      type = lib.types.int;
-      default = 12201;
-      description = "Port of a GELF TCP input to push messages to";
-    };
-
-    systemd = {
-      enable = lib.mkEnableOption "pushing systemd logs to SIEM";
-    };
-
-    docker = {
-      enable = lib.mkEnableOption "pushing Docker logs to SIEM";
-    };
-  };
   config = lib.mkMerge [
-    (lib.mkIf (cfg.logs.systemd.enable || cfg.logs.docker.enable) {
+    (lib.mkIf (cfg.logs.system.enable || cfg.logs.docker.enable) {
       services.fluent-bit = {
         enable = true;
         settings = {
           service.log_level = "warn";
           pipeline = {
             inputs =
-              (lib.optional cfg.logs.systemd.enable {
+              (lib.optional cfg.logs.system.enable {
                 name = "systemd";
                 tag = "journal.*";
 
@@ -48,7 +29,7 @@ in
                 unix_path = "/run/fluent-bit/fluent-bit.sock";
               });
             filters =
-              (lib.optional cfg.logs.systemd.enable {
+              (lib.optional cfg.logs.system.enable {
                 name = "modify";
                 match = "journal.*";
                 add = [
