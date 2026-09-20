@@ -1,6 +1,7 @@
 {
   lib,
   config,
+  pkgs,
   ...
 }:
 let
@@ -11,6 +12,10 @@ in
     (lib.mkIf (cfg.logs.system.enable || cfg.logs.docker.enable) {
       services.fluent-bit = {
         enable = true;
+        package = pkgs.fluent-bit.overrideAttrs (old: {
+          # Avoid rewriting the persistent journal cursor every second while idle.
+          patches = (old.patches or [ ]) ++ [ ./fluent-bit-cursor-on-change.patch ];
+        });
         settings = {
           service.log_level = "warn";
           pipeline = {
