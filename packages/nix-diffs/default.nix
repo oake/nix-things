@@ -4,13 +4,13 @@
 }:
 pkgs.buildGoModule (finalAttrs: {
   inherit pname;
-  version = "0.1.0";
+  version = "0.2.0";
 
   src = pkgs.fetchFromGitHub {
     owner = "anna-oake";
     repo = "nix-diffs";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-8paOY+p4ZLedcqtvSYpH8Cxvak4hLBTbkaOf3r9FLpE=";
+    hash = "sha256-32a11TMU7hCOUNoRxjp2TgsxZJ3o2nOM4eJiF+hOSmw=";
   };
 
   vendorHash = null;
