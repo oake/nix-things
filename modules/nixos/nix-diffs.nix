@@ -35,6 +35,7 @@ in
     users.groups.nix-diffs = { };
     systemd.tmpfiles.rules = [
       "d ${cfg.dataPath} 0755 root root - -"
+      "d ${cfg.dataPath}/comparisons 0750 nix-diffs nix-diffs - -"
       "d ${cfg.dataPath}/diffs 0750 nix-diffs nix-diffs - -"
       "d ${cfg.dataPath}/repos 0750 nix-diffs nix-diffs - -"
     ];
@@ -62,6 +63,7 @@ in
         ProtectSystem = "strict";
         ProtectHome = true;
         ReadWritePaths = [
+          "${cfg.dataPath}/comparisons"
           "${cfg.dataPath}/diffs"
           "${cfg.dataPath}/repos"
         ];
