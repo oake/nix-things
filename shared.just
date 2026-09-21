@@ -66,6 +66,48 @@ deploy *args: _add
 @secret secret: _add && rekey
   nix run github:oddlama/agenix-rekey -- edit ./secrets/secrets/{{secret}}.age
 
+# authenticate a steam account for lancache prefill, store the token as a secret
+[group('secrets')]
+auth-steam account: _add && rekey
+  #!/usr/bin/env sh
+  set -eu
+
+  accounts=".#nixosConfigurations.lxc-lancache.config.services.lancache.prefill.steam.accounts"
+  token_path=$(nix eval --raw "${accounts}.{{account}}.tokenFile" 2>/dev/null) || {
+    echo "no steam account '{{account}}' on lxc-lancache, configured accounts are:" >&2
+    nix eval --raw "$accounts" --apply 'a: builtins.concatStringsSep "\n" (map (n: "  " + n) (builtins.attrNames a))' >&2
+    echo >&2
+    exit 1
+  }
+  secret_name="${token_path#/run/agenix/}"
+  [ "$secret_name" != "$token_path" ] || { echo "unexpected tokenFile: $token_path" >&2; exit 1; }
+  secret="./secrets/secrets/${secret_name}.age"
+
+  prefill=$(nix build --no-link --print-out-paths github:oake/nix-things#steam-lancache-prefill)/bin/SteamPrefill
+
+  workdir=$(mktemp -d)
+  trap 'rm -rf "$workdir"' EXIT
+  token="$workdir/Config/account.config"
+
+  echo "Logging in as steam account '{{account}}'. This will close itself once the login goes through."
+  ( cd "$workdir" && exec "$prefill" select-apps ) < /dev/tty &
+  app=$!
+
+  while kill -0 "$app" 2>/dev/null; do
+    if grep -q "Steam session initialization complete" "$workdir/app.log" 2>/dev/null; then
+      kill -TERM "$app" 2>/dev/null || true
+      break
+    fi
+    sleep 0.5
+  done
+  wait "$app" 2>/dev/null || true
+  printf '\033[?25h'
+
+  [ -s "$token" ] || { echo "login did not complete, no token was written" >&2; exit 1; }
+
+  rm -f "$secret"
+  nix run github:oddlama/agenix-rekey -- edit -i "$token" "$secret"
+
 # rekey all agenix secrets
 [group('secrets')]
 @rekey: _add
