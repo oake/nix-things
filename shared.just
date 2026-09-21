@@ -118,14 +118,33 @@ auth-steam account: _add && rekey
 @inspect:
   nix run nixpkgs#nix-inspect -- -p .
 
+# prune nix store
+[group('tools')]
+clean:
+  #!/usr/bin/env sh
+  set -eu
+
+  if command -v nh >/dev/null; then
+    nh clean all
+  else
+    sudo nix-collect-garbage -d
+  fi
+
 # rebuild and switch this host to new configuration
 [group('tools')]
-@rebuild: _add
-    if [ -f /etc/NIXOS ]; then \
-        sudo nixos-rebuild switch --option always-allow-substitutes true --flake .; \
-    else \
-        sudo darwin-rebuild switch --option always-allow-substitutes true --flake .; \
-    fi
+rebuild: _add
+  #!/usr/bin/env sh
+  set -eu
+
+  if [ -f /etc/NIXOS ]; then platform=os; else platform=darwin; fi
+
+  if command -v nh >/dev/null; then
+    nh "$platform" switch .
+  elif [ "$platform" = os ]; then
+    sudo nixos-rebuild switch --option always-allow-substitutes true --flake .
+  else
+    sudo darwin-rebuild switch --option always-allow-substitutes true --flake .
+  fi
 
 @_add:
     git add --all
