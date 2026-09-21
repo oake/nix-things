@@ -28,7 +28,7 @@ in
               options = {
                 prefillAll = mkEnableOption "prefill all owned games";
                 prefillRecent = mkEnableOption "prefill games played in the last 2 weeks";
-                prefillRecentlyPurchased = mkEnableOption "prefill games purchased in the last 2 weeks";
+                prefillRecentlyPurchased = mkEnableOption "prefill games purchased in the last 30 days";
                 appIds = mkOption {
                   type = types.listOf types.int;
                   default = [ ];

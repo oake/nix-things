@@ -8,20 +8,17 @@ let
     buildDotnetModule
     dotnetCorePackages
     fetchFromGitHub
-    curl
-    jq
-    unzip
     ;
 in
 buildDotnetModule (finalAttrs: {
   inherit pname;
-  version = "3.4.1.1";
+  version = "3.7.2";
 
   src = fetchFromGitHub {
-    owner = "anna-oake";
+    owner = "tpill90";
     repo = "steam-lancache-prefill";
-    rev = "6afd249586670ded128a0e3ff293c50fd054f1aa";
-    hash = "sha256-/k4u9euHPL7xk7s3xZXJIeNM6COYocIszbJmhdmVcak=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-469AQCuqjjkWElRPea/78CHi1ZBYF7y7O7QxlJb/I48=";
     fetchSubmodules = true;
   };
 
@@ -35,12 +32,6 @@ buildDotnetModule (finalAttrs: {
 
   patches = [ ./current-dir-config.patch ];
 
-  nativeBuildInputs = [
-    curl
-    jq
-    unzip
-  ];
-
   postInstall = ''
     rm -rf $out/lib/steam-lancache-prefill/update.sh
   '';
@@ -52,6 +43,6 @@ buildDotnetModule (finalAttrs: {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ rhoriguchi ];
     mainProgram = "SteamPrefill";
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 })
