@@ -20,6 +20,7 @@
 
     security.sudo.extraConfig = ''
       deploy ALL = (root) NOPASSWD: /nix/store/*-activatable-darwin-system-*/activate-rs
+      deploy ALL = (root) NOPASSWD: /bin/rm /private/tmp/deploy-rs-canary-*
       deploy ALL = (root) NOPASSWD: /bin/rm /tmp/deploy-rs-canary-*
     '';
   };

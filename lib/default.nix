@@ -494,20 +494,24 @@ let
             else
               inputs.deploy-rs
                 or (throw ''deploy configurations require deploy-rs. To fix this, add `inputs.deploy-rs.url = "github:serokell/deploy-rs";` to your flake'');
+          isDarwin = cfg: cfg.pkgs.stdenv.hostPlatform.isDarwin;
           mkActivate =
             cfg:
             let
-              inherit (cfg.pkgs.stdenv) isDarwin;
               system = cfg.pkgs.stdenv.hostPlatform.system;
             in
-            deploy-rs.lib.${system}.activate.${if isDarwin then "darwin" else "nixos"} cfg;
+            deploy-rs.lib.${system}.activate.${if isDarwin cfg then "darwin" else "nixos"} cfg;
           nodes = lib.mapAttrs (_: cfg: {
             hostname = cfg.config.deploy.fqdn;
             profiles.system = {
               sshUser = "deploy";
               user = "root";
               path = mkActivate cfg;
-            };
+            }
+            # deploy-rs's magic rollback watcher compares fs event paths against the
+            # canary path verbatim, and /tmp is a symlink to /private/tmp on darwin,
+            # so it never sees its own confirmation unless the path is already canonical.
+            // lib.optionalAttrs (isDarwin cfg) { tempPath = "/private/tmp"; };
           }) deployCfgs;
           checks = lib.foldl' lib.recursiveUpdate { } (
             lib.mapAttrsToList (name: cfg: {
