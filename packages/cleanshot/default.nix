@@ -40,7 +40,7 @@ stdenv.mkDerivation (finalAttrs: {
   buildPhase = ''
     $CC -x objective-c -fobjc-arc -dynamiclib -fvisibility=hidden \
       -arch arm64 -arch x86_64 \
-      -framework Foundation \
+      -framework Foundation -framework AppKit \
       ${./redirect.m} -o libcsredirect.dylib
   '';
 
@@ -68,7 +68,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   meta = {
-    description = "CleanShot X with a configurable cloud API host";
+    description = "CleanShot X with configurable cloud API and dashboard URLs";
     homepage = "https://cleanshot.com";
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     license = lib.licenses.unfree;

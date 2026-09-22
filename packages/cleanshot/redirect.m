@@ -1,24 +1,29 @@
 // libcsredirect — injected into CleanShot X to redirect its hardcoded cloud API
-// host (api.cleanshot.cloud) to a configured replacement.
+// host and cloud dashboard URL to configured replacements.
 //
 // Swizzles NSURLSession's task factories (which Swift's URLSession bridges
 // through) to rewrite only the request host, over https — path/query/body/auth
 // are untouched, and every other host (e.g. licensing) is left alone.
 //
-// Replacement host, resolved at startup: $CLEANSHOT_API_HOST, else
-// ~/Library/Application Support/CleanShotRedirect/host. Unset ⇒ no redirect.
+// API host: $CLEANSHOT_API_HOST, else
+// ~/Library/Application Support/CleanShotRedirect/host.
+// Dashboard URL: $CLEANSHOT_DASHBOARD_URL, else
+// ~/Library/Application Support/CleanShotRedirect/dashboard-url.
+// Each redirect is independently optional.
 
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 
 static NSString *const kSourceHost = @"api.cleanshot.cloud";
 static NSString *targetHost;
+static NSURL *targetDashboardURL;
 
-static NSString *ConfiguredHost(void) {
-    const char *env = getenv("CLEANSHOT_API_HOST");
+static NSString *ConfiguredValue(const char *environmentKey, NSString *fileName) {
+    const char *env = getenv(environmentKey);
     if (env && *env) return @(env);
     NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:
-        @"Library/Application Support/CleanShotRedirect/host"];
+        [@"Library/Application Support/CleanShotRedirect" stringByAppendingPathComponent:fileName]];
     NSString *s = [[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL]
         stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     return s.length ? s : nil;
@@ -42,6 +47,26 @@ static id RewriteRequest(NSURLRequest *req) {
     return m;
 }
 
+static NSURL *RewriteDashboardURL(NSURL *url) {
+    if (!targetDashboardURL || ![url.host.lowercaseString isEqualToString:@"cleanshot.com"]) return url;
+
+    NSURLComponents *source = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    NSString *sourcePath = source.percentEncodedPath ?: @"";
+    if (![sourcePath isEqualToString:@"/cloud"] && ![sourcePath hasPrefix:@"/cloud/"]) return url;
+
+    NSURLComponents *target = [NSURLComponents componentsWithURL:targetDashboardURL
+        resolvingAgainstBaseURL:NO];
+    NSString *suffix = [sourcePath substringFromIndex:@"/cloud".length];
+    if (suffix.length) {
+        NSString *basePath = target.percentEncodedPath ?: @"";
+        while ([basePath hasSuffix:@"/"]) basePath = [basePath substringToIndex:basePath.length - 1];
+        target.percentEncodedPath = [basePath stringByAppendingString:suffix];
+    }
+    target.percentEncodedQuery = source.percentEncodedQuery;
+    target.percentEncodedFragment = source.percentEncodedFragment;
+    return target.URL ?: url;
+}
+
 // Swizzle a task factory, rewriting its first argument (a request or URL) with
 // `rw`; `trailing` is the number of pass-through args after it (0–2).
 typedef id (*Rewriter)(id);
@@ -59,9 +84,38 @@ static void hook(Class cls, SEL sel, Rewriter rw, int trailing) {
     method_setImplementation(m, imp_implementationWithBlock(block));
 }
 
+static void hookWorkspaceOpenURL(void) {
+    Class cls = NSWorkspace.class;
+
+    SEL legacy = @selector(openURL:);
+    Method legacyMethod = class_getInstanceMethod(cls, legacy);
+    if (legacyMethod) {
+        IMP orig = method_getImplementation(legacyMethod);
+        id block = ^BOOL(id workspace, NSURL *url) {
+            return ((BOOL(*)(id, SEL, NSURL *))orig)(workspace, legacy, RewriteDashboardURL(url));
+        };
+        method_setImplementation(legacyMethod, imp_implementationWithBlock(block));
+    }
+
+    SEL modern = @selector(openURL:configuration:completionHandler:);
+    Method modernMethod = class_getInstanceMethod(cls, modern);
+    if (modernMethod) {
+        IMP orig = method_getImplementation(modernMethod);
+        id block = ^(id workspace, NSURL *url, id configuration, id completionHandler) {
+            ((void(*)(id, SEL, NSURL *, id, id))orig)(workspace, modern,
+                RewriteDashboardURL(url), configuration, completionHandler);
+        };
+        method_setImplementation(modernMethod, imp_implementationWithBlock(block));
+    }
+}
+
 __attribute__((constructor))
 static void install(void) {
-    targetHost = ConfiguredHost();
+    targetHost = ConfiguredValue("CLEANSHOT_API_HOST", @"host");
+    NSString *dashboard = ConfiguredValue("CLEANSHOT_DASHBOARD_URL", @"dashboard-url");
+    if (dashboard.length) targetDashboardURL = [NSURL URLWithString:dashboard];
+
+    if (targetDashboardURL) hookWorkspaceOpenURL();
     if (!targetHost.length) return;
 
     Class cls = NSURLSession.class;
