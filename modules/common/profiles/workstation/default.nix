@@ -15,6 +15,7 @@
   config = lib.mkIf config.profiles.workstation.enable {
     environment.systemPackages = [
       pkgs.age-plugin-1p-pq
+      pkgs.mrrp
     ];
   };
 }
