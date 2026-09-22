@@ -25,8 +25,8 @@ in
       }
     ];
     launchd.daemons.beszel-agent = {
+      command = "${start}";
       serviceConfig = {
-        ProgramArguments = [ "${start}" ];
         UserName = "root";
         EnvironmentVariables = {
           HUB_URL = cfg.targetUrl;
