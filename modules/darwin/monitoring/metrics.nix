@@ -9,6 +9,12 @@ let
   start = pkgs.writeShellScript "beszel-agent-start" ''
     /bin/mkdir -p /var/lib/beszel-agent
     /bin/chmod 0700 /var/lib/beszel-agent
+
+    if [ ! -r ${cfg.tokenFile} ]; then
+      echo "beszel-agent: ${cfg.tokenFile} is not readable yet, retrying"
+      exit 1
+    fi
+
     exec ${pkgs.beszel}/bin/beszel-agent
   '';
 in
