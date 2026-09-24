@@ -513,6 +513,10 @@ let
             # so it never sees its own confirmation unless the path is already canonical.
             // lib.optionalAttrs (isDarwin cfg) { tempPath = "/private/tmp"; };
           }) deployCfgs;
+          # Read by services.deployer from each commit it deploys.
+          autoHosts = lib.attrNames (
+            lib.filterAttrs (_: cfg: !isDarwin cfg && cfg.config.deploy.auto.enable) deployCfgs
+          );
           checks = lib.foldl' lib.recursiveUpdate { } (
             lib.mapAttrsToList (name: cfg: {
               ${cfg.pkgs.stdenv.hostPlatform.system} = {
@@ -522,7 +526,7 @@ let
           );
         in
         {
-          inherit nodes checks;
+          inherit nodes autoHosts checks;
         };
 
       mkPerHostScripts =
@@ -698,6 +702,8 @@ let
       deploy = {
         nodes = deployCfgs.nodes;
       };
+
+      deployer.hosts = deployCfgs.autoHosts;
 
       checks = lib.recursiveUpdate (eachSystem (
         { system, pkgs, ... }:

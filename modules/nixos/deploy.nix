@@ -4,6 +4,8 @@
   ...
 }:
 {
+  options.deploy.auto.enable = lib.mkEnableOption "automatic boot deployments of this host by services.deployer";
+
   config = lib.mkIf config.deploy.enable {
     users.users.deploy.isNormalUser = true;
 

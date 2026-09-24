@@ -20,15 +20,10 @@ in
     githubRepo = mkOption {
       type = types.str;
       example = "anna-oake/nixos-config";
-      description = "Public GitHub repository in owner/repository format.";
-    };
-    hosts = mkOption {
-      type = types.nonEmptyListOf types.str;
-      example = [
-        "eule"
-        "star"
-      ];
-      description = "NixOS configuration and deploy-rs node names to deploy.";
+      description = ''
+        Public GitHub repository in owner/repository format. Hosts with
+        deploy.auto.enable in its latest commit are deployed.
+      '';
     };
     atticServer = mkOption {
       type = types.str;
@@ -39,6 +34,14 @@ in
       type = types.str;
       example = "nixos";
       description = "Public Attic cache name.";
+    };
+    upstreamCaches = mkOption {
+      type = types.listOf types.str;
+      default = [ "https://cache.nixos.org" ];
+      description = ''
+        HTTP(S) binary cache URLs checked for closure paths missing from Attic.
+        Set to [ ] to require every path to be in Attic.
+      '';
     };
     atticTokenFile = mkOption {
       type = types.strMatching "/.+";
@@ -59,6 +62,11 @@ in
         the key as a credential and a service-local SSH agent supplies it to
         deploy-rs and Nix.
       '';
+    };
+    webPort = mkOption {
+      type = types.nullOr types.port;
+      default = 9083;
+      description = "Port for the status page, listening on 0.0.0.0. Null disables it.";
     };
     interval = mkOption {
       type = types.str;
@@ -89,11 +97,14 @@ in
       environment = {
         GITHUB_REPO = cfg.githubRepo;
         DATA_PATH = cfg.dataPath;
-        HOSTS = lib.concatStringsSep "," cfg.hosts;
         ATTIC_SERVER = cfg.atticServer;
         ATTIC_CACHE = cfg.atticCache;
+        UPSTREAM_CACHES = lib.concatStringsSep "," cfg.upstreamCaches;
         INTERVAL = cfg.interval;
         HOME = "/root";
+      }
+      // lib.optionalAttrs (cfg.webPort != null) {
+        WEB_PORT = toString cfg.webPort;
       };
       serviceConfig = {
         SyslogIdentifier = "deployer";
