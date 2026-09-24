@@ -80,6 +80,11 @@ in
       "nix-command"
       "flakes"
     ];
+    programs.ssh.extraConfig = ''
+      Match user deploy
+        StrictHostKeyChecking accept-new
+      Match all
+    '';
     systemd.services.deployer = {
       description = "Deploy CI-cached NixOS configurations for next boot";
       wantedBy = [ "multi-user.target" ];
