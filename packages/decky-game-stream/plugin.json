@@ -1,0 +1,11 @@
+{
+  "name": "Game Stream",
+  "author": "anna",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": [],
+    "description": "Toggle game stream.",
+    "image": ""
+  }
+}
