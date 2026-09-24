@@ -3,7 +3,7 @@
   pname,
 }:
 let
-  version = "0.2.0";
+  version = "0.3.0";
   inherit (pkgs)
     lib
     buildGoModule
@@ -17,7 +17,7 @@ buildGoModule {
     owner = "anna-oake";
     repo = "deployer";
     rev = "v${version}";
-    hash = "sha256-W4z8FjEAHm1sVQfyT5lsIahFKR9veqebgM8YtI9RSnY=";
+    hash = "sha256-EZQsQlM8OfUf4Z7mKsVypivTexNS4lAVmtgvSuY6jU4=";
   };
 
   vendorHash = null;
