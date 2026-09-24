@@ -1,0 +1,232 @@
+--- a/include/nixd/Controller/Configuration.h
++++ b/include/nixd/Controller/Configuration.h
+@@ -5,6 +5,7 @@
+ #include <llvm/Support/JSON.h>
+ 
+ #include <map>
++#include <optional>
+ #include <string>
+ #include <vector>
+ 
+@@ -19,6 +20,9 @@
+   struct OptionProvider {
+     /// \brief Expression to eval. Select this attrset as eval .options
+     std::string expr;
++    /// \brief Position of this set when listing merged completion origins.
++    /// Sets without an order come after ordered ones, alphabetically.
++    std::optional<int> order;
+   };
+ 
+   std::map<std::string, OptionProvider> options;
+--- a/include/nixd/Controller/Controller.h
++++ b/include/nixd/Controller/Controller.h
+@@ -33,6 +33,9 @@
+   //      "home-manager" -> home-manager worker
+   OptionMapTy Options; // GUARDED_BY(OptionsLock)
+ 
++  // User-specified "order" of option providers, see Configuration.
++  std::map<std::string, int> OptionOrder; // GUARDED_BY(OptionsLock)
++
+   AttrSetClientProc &nixpkgsEval() {
+     assert(NixpkgsEval);
+     return *NixpkgsEval;
+--- a/lib/Controller/Completion.cpp
++++ b/lib/Controller/Completion.cpp
+@@ -16,6 +16,7 @@
+ 
+ #include <boost/asio/post.hpp>
+ 
++#include <algorithm>
+ #include <exception>
+ #include <semaphore>
+ #include <set>
+@@ -48,6 +49,32 @@
+   Items.emplace_back(std::move(Item));
+ }
+ 
++/// Add an option completion item, or merge it into an identical item that
++/// another option set already produced. \p Detail is the item detail without
++/// its origin; merged items list every origin, e.g. "nixos | darwin | bool".
++/// Not size-limited: every set must be merged before the list is truncated.
++void addOptionItem(std::vector<CompletionItem> &Items, CompletionItem Item,
++                   const std::string &Origin, const std::string &Detail) {
++  const std::string Suffix = Detail.empty() ? "" : " | " + Detail;
++  for (CompletionItem &Existing : Items) {
++    if (Existing.label != Item.label || Existing.kind != Item.kind ||
++        Existing.insertText != Item.insertText ||
++        Existing.documentation.has_value() != Item.documentation.has_value())
++      continue;
++    if (Existing.documentation &&
++        Existing.documentation->value != Item.documentation->value)
++      continue;
++    const std::string &D = Existing.detail;
++    if (!llvm::StringRef(D).ends_with(Suffix))
++      continue;
++    Existing.detail =
++        D.substr(0, D.size() - Suffix.size()) + " | " + Origin + Suffix;
++    return;
++  }
++  Item.detail = Origin + Suffix;
++  Items.emplace_back(std::move(Item));
++}
++
+ bool hasConcreteChild(const Node &N) {
+   for (const Node *Child : N.children()) {
+     if (Child)
+@@ -252,12 +279,13 @@
+     };
+     for (const nixd::OptionField &Field : Names) {
+       if (!Field.Description) {
+-        addItem(Items, CompletionItem{
+-                           .label = Field.Name,
+-                           .kind = OptionAttrKind,
+-                           .detail = ModuleOrigin,
+-                           .textEdit = MkTextEdit(Field.Name),
+-                       });
++        addOptionItem(Items,
++                      CompletionItem{
++                          .label = Field.Name,
++                          .kind = OptionAttrKind,
++                          .textEdit = MkTextEdit(Field.Name),
++                      },
++                      ModuleOrigin, "");
+         continue;
+       }
+ 
+@@ -268,7 +296,7 @@
+       // the user pick between the sample code the option author suggested
+       // and its default value - useful when an option only has one of the
+       // two, or when the user wants the default as a starting point.
+-      std::string TypeDetail = ModuleOrigin + " | ";
++      std::string TypeDetail;
+       if (Desc.Type) {
+         std::string TypeName = Desc.Type->Name.value_or("");
+         std::string TypeDesc = Desc.Type->Description.value_or("");
+@@ -301,14 +329,13 @@
+         CompletionItem Item{
+             .label = std::move(Label),
+             .kind = OptionKind,
+-            .detail = TypeDetail,
+             .documentation = Doc,
+             .sortText = (SortPrefix + Field.Name).str(),
+             .filterText = Field.Name,
+         };
+         fillInsertText(Item, Field.Name, Value);
+         Item.textEdit = MkTextEdit(Item.insertText);
+-        addItem(Items, std::move(Item));
++        addOptionItem(Items, std::move(Item), ModuleOrigin, TypeDetail);
+       };
+ 
+       bool Emitted = false;
+@@ -326,12 +353,11 @@
+         CompletionItem Item{
+             .label = Field.Name,
+             .kind = OptionKind,
+-            .detail = TypeDetail,
+             .documentation = Doc,
+         };
+         fillInsertText(Item, Field.Name, "");
+         Item.textEdit = MkTextEdit(Item.insertText);
+-        addItem(Items, std::move(Item));
++        addOptionItem(Items, std::move(Item), ModuleOrigin, TypeDetail);
+       }
+     }
+   }
+@@ -340,22 +366,50 @@
+ void completeAttrName(const lspserver::Range EditRange,
+                       const std::vector<std::string> &Scope,
+                       const std::string &Prefix,
+-                      Controller::OptionMapTy &Options, bool CompletionSnippets,
++                      Controller::OptionMapTy &Options,
++                      const std::map<std::string, int> &OptionOrder,
++                      bool CompletionSnippets,
+                       std::vector<CompletionItem> &List) {
+-  for (const auto &[Name, Provider] : Options) {
++  // Query every option set before applying the size limit, so items shared
++  // by several sets are fully merged and later sets are not starved.
++  // Visit sets in their configured "order" (unordered ones last, keeping the
++  // map's alphabetical order), which is also the order of merged origins.
++  std::vector<std::string> Names;
++  for (const auto &[Name, _] : Options)
++    Names.push_back(Name);
++  auto Rank = [&](const std::string &Name) -> std::pair<bool, int> {
++    auto It = OptionOrder.find(Name);
++    if (It == OptionOrder.end())
++      return {true, 0};
++    return {false, It->second};
++  };
++  std::stable_sort(Names.begin(), Names.end(),
++                   [&](const std::string &A, const std::string &B) {
++                     return Rank(A) < Rank(B);
++                   });
++  std::vector<CompletionItem> Merged;
++  for (const std::string &Name : Names) {
+     AttrSetClient *Client = Options.at(Name)->client();
+     if (!Client) [[unlikely]] {
+       elog("skipped client {0} as it is dead", Name);
+       continue;
+     }
+     OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
+-    OCP.completeOptions(EditRange, Scope, Prefix, List);
++    OCP.completeOptions(EditRange, Scope, Prefix, Merged);
+   }
++  std::stable_sort(Merged.begin(), Merged.end(),
++                   [](const CompletionItem &A, const CompletionItem &B) {
++                     return A.label < B.label;
++                   });
++  for (CompletionItem &Item : Merged)
++    addItem(List, std::move(Item));
+ }
+ 
+ void completeAttrPath(const lspserver::Range EditRange, const Node &N,
+                       const ParentMapAnalysis &PM, std::mutex &OptionsLock,
+-                      Controller::OptionMapTy &Options, bool Snippets,
++                      Controller::OptionMapTy &Options,
++                      const std::map<std::string, int> &OptionOrder,
++                      bool Snippets,
+                       std::vector<lspserver::CompletionItem> &Items) {
+   std::vector<std::string> Scope;
+   using PathResult = FindAttrPathResult;
+@@ -366,7 +420,8 @@
+     Scope.pop_back();
+     {
+       std::lock_guard _(OptionsLock);
+-      completeAttrName(EditRange, Scope, Prefix, Options, Snippets, Items);
++      completeAttrName(EditRange, Scope, Prefix, Options, OptionOrder, Snippets,
++                       Items);
+     }
+   }
+ }
+@@ -508,7 +563,8 @@
+           }
+           case Node::NK_ExprAttrs: {
+             completeAttrPath(EditRange, N, PM, OptionsLock, Options,
+-                             ClientCaps.CompletionSnippets, List.items);
++                             OptionOrder, ClientCaps.CompletionSnippets,
++                             List.items);
+             return List;
+           }
+           default:
+--- a/lib/Controller/Configuration.cpp
++++ b/lib/Controller/Configuration.cpp
+@@ -28,7 +28,7 @@
+ bool nixd::fromJSON(const Value &Params, Configuration::OptionProvider &R,
+                     llvm::json::Path P) {
+   ObjectMapper O(Params, P);
+-  return O && O.mapOptional("expr", R.expr);
++  return O && O.mapOptional("expr", R.expr) && O.mapOptional("order", R.order);
+ }
+ 
+ bool nixd::fromJSON(const Value &Params, Configuration::NixpkgsProvider &R,
+@@ -66,8 +66,11 @@
+   }
+   if (!Config.options.empty()) {
+     std::lock_guard _(OptionsLock);
++    OptionOrder.clear();
+     // For each option configuration, update the worker.
+     for (const auto &[Name, Opt] : Config.options) {
++      if (Opt.order)
++        OptionOrder[Name] = *Opt.order;
+       auto &Client = Options[Name];
+       if (!Client) {
+         // If it does not exist. Launch a new client.

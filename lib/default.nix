@@ -589,6 +589,86 @@ let
 
       apps = lib.foldl' lib.recursiveUpdate bootstrapScripts.apps [ lxcScripts.apps ];
 
+      # Option/package sources for nixd (.zed/settings.json). Every host's options are
+      # merged together with host-less evals of this flake's own modules, so
+      # completion covers all hosts and modules no host imports yet.
+      nixd = eachSystem (
+        { pkgs, system, ... }:
+        let
+          # Deep-merge option trees, treating each option declaration as a leaf.
+          mergeOptions = lib.foldl' (lib.recursiveUpdateUntil (
+            _: l: r:
+            lib.isOption l || lib.isOption r
+          )) { };
+
+          # Host-less evals skip the unknown-option check: modules here may set
+          # options (e.g. age.*) that only the consuming flake's imports declare.
+          ownModules =
+            namespace:
+            lib.optionals (modules ? ${namespace}) [
+              modules.${namespace}.default
+              { _module.check = lib.mkForce false; }
+            ];
+
+          # Home Manager only ever runs inside a host, so this flake's home
+          # modules are evaluated as sharedModules of the host-less systems.
+          hostlessHomeModule =
+            hmModule:
+            lib.optionals (modules ? home && inputs ? home-manager) [
+              hmModule
+              { home-manager.sharedModules = ownModules "home"; }
+            ];
+
+          hostless =
+            {
+              namespace,
+              mkSystem,
+              hostPlatform,
+              hmModule,
+            }:
+            lib.optional (modules ? ${namespace}) (mkSystem {
+              modules = [
+                { nixpkgs.hostPlatform = hostPlatform; }
+              ]
+              ++ ownModules namespace
+              ++ ownModules "common"
+              ++ hostlessHomeModule hmModule;
+              specialArgs = specialArgs // {
+                hostName = "nixd";
+              };
+            });
+
+          hostlessNixOS = hostless {
+            namespace = "nixos";
+            mkSystem = inputs.nixpkgs.lib.nixosSystem;
+            hostPlatform = if pkgs.stdenv.hostPlatform.isLinux then system else "x86_64-linux";
+            hmModule = inputs.home-manager.nixosModules.default or null;
+          };
+
+          hostlessDarwin = lib.optionals (inputs ? nix-darwin) (hostless {
+            namespace = "darwin";
+            mkSystem = inputs.nix-darwin.lib.darwinSystem;
+            hostPlatform = "aarch64-darwin";
+            hmModule = inputs.home-manager.darwinModules.default or null;
+          });
+
+          hostHomeOptions =
+            c: lib.optional (c.options ? home-manager) (c.options.home-manager.users.type.getSubOptions [ ]);
+        in
+        {
+          inherit pkgs;
+          options = {
+            nixos = mergeOptions (map (c: c.options) (hostlessNixOS ++ lib.attrValues nixosConfigurations));
+            darwin = mergeOptions (map (c: c.options) (hostlessDarwin ++ lib.attrValues darwinConfigurations));
+            home-manager = mergeOptions (
+              lib.concatMap hostHomeOptions (
+                hostlessNixOS ++ hostlessDarwin ++ lib.attrValues allHostConfigurations
+              )
+            );
+          };
+        }
+      );
+
       extraChecks = lib.foldl' lib.recursiveUpdate { } [
         (mkDiskoChecks nixosConfigurations)
         bootstrapScripts.checks
@@ -613,7 +693,7 @@ let
       # TODO: how to extract NixOS tests?
       nixosModules = modules.nixos or { };
 
-      inherit apps;
+      inherit apps nixd;
 
       deploy = {
         nodes = deployCfgs.nodes;
