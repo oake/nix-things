@@ -717,7 +717,10 @@ let
         { system, pkgs, ... }:
         let
           formatterCheck = pkgs.runCommand "formatter-check" { buildInputs = [ pkgs.nixfmt-tree ]; } ''
-            treefmt --ci ${src} && touch "$out"
+            cp -R ${src} source
+            chmod -R u+w source
+            treefmt --ci --walk filesystem --tree-root source source
+            touch "$out"
           '';
         in
         lib.mergeAttrsList ([
