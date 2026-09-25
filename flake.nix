@@ -3,7 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v1.1.0";
+      url = "github:nix-community/lanzaboote/92a2a41085c56ec894769afd7c3fc25fa8b2f651";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     deploy-rs = {
