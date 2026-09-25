@@ -470,63 +470,77 @@ let
 
       packages = lib.mapAttrs filterPlatforms unfilteredPackages;
 
-      mkDiskoChecks =
-        cfgs:
+      isDarwinHost = cfg: cfg.pkgs.stdenv.hostPlatform.isDarwin;
+
+      mkDeployActivate =
+        cfg:
         let
-          withDisko = lib.filterAttrs (_: c: c.config.disko.simple.device != null) cfgs;
+          deploy-rs =
+            inputs.deploy-rs
+              or (throw ''deploy configurations require deploy-rs. To fix this, add `inputs.deploy-rs.url = "github:serokell/deploy-rs";` to your flake'');
+          system = cfg.pkgs.stdenv.hostPlatform.system;
         in
-        lib.foldl' (
-          acc: name:
-          let
-            c = withDisko.${name};
-            sys = c.pkgs.stdenv.hostPlatform.system;
-          in
-          lib.recursiveUpdate acc { ${sys}."disko-${name}" = c.config.system.build.diskoScript; }
-        ) { } (builtins.attrNames withDisko);
+        deploy-rs.lib.${system}.activate.${if isDarwinHost cfg then "darwin" else "nixos"} cfg;
+
+      mkHostCheck =
+        name: cfg:
+        let
+          pkgs = cfg.pkgs;
+          main =
+            if cfg.config.deploy.enable then
+              mkDeployActivate cfg
+            else if isDarwinHost cfg then
+              cfg.system
+            else
+              cfg.config.system.build.toplevel;
+          extras =
+            lib.optionals (!isDarwinHost cfg) [
+              {
+                name = "bootstrap";
+                path = (import ./scripts/bootstrap.nix) pkgs pkgs name cfg;
+              }
+            ]
+            ++ lib.optional (!isDarwinHost cfg && cfg.config.disko.simple.device != null) {
+              name = "disko";
+              path = cfg.config.system.build.diskoScript;
+            };
+        in
+        if extras == [ ] then
+          main
+        else
+          pkgs.linkFarm "check-${name}" (
+            [
+              {
+                name = "main";
+                path = main;
+              }
+            ]
+            ++ extras
+          );
 
       mkDeployNodes =
         cfgs:
         let
           deployCfgs = lib.filterAttrs (_: c: c.config.deploy.enable) cfgs;
-          deploy-rs =
-            if builtins.attrNames deployCfgs == [ ] then
-              null
-            else
-              inputs.deploy-rs
-                or (throw ''deploy configurations require deploy-rs. To fix this, add `inputs.deploy-rs.url = "github:serokell/deploy-rs";` to your flake'');
-          isDarwin = cfg: cfg.pkgs.stdenv.hostPlatform.isDarwin;
-          mkActivate =
-            cfg:
-            let
-              system = cfg.pkgs.stdenv.hostPlatform.system;
-            in
-            deploy-rs.lib.${system}.activate.${if isDarwin cfg then "darwin" else "nixos"} cfg;
           nodes = lib.mapAttrs (_: cfg: {
             hostname = cfg.config.deploy.fqdn;
             profiles.system = {
               sshUser = "deploy";
               user = "root";
-              path = mkActivate cfg;
+              path = mkDeployActivate cfg;
             }
             # deploy-rs's magic rollback watcher compares fs event paths against the
             # canary path verbatim, and /tmp is a symlink to /private/tmp on darwin,
             # so it never sees its own confirmation unless the path is already canonical.
-            // lib.optionalAttrs (isDarwin cfg) { tempPath = "/private/tmp"; };
+            // lib.optionalAttrs (isDarwinHost cfg) { tempPath = "/private/tmp"; };
           }) deployCfgs;
           # Read by services.deployer from each commit it deploys.
           autoHosts = lib.attrNames (
-            lib.filterAttrs (_: cfg: !isDarwin cfg && cfg.config.deploy.auto.enable) deployCfgs
-          );
-          checks = lib.foldl' lib.recursiveUpdate { } (
-            lib.mapAttrsToList (name: cfg: {
-              ${cfg.pkgs.stdenv.hostPlatform.system} = {
-                "deploy-${name}" = mkActivate cfg;
-              };
-            }) deployCfgs
+            lib.filterAttrs (_: cfg: !isDarwinHost cfg && cfg.config.deploy.auto.enable) deployCfgs
           );
         in
         {
-          inherit nodes autoHosts checks;
+          inherit nodes autoHosts;
         };
 
       mkPerHostScripts =
@@ -673,12 +687,6 @@ let
         }
       );
 
-      extraChecks = lib.foldl' lib.recursiveUpdate { } [
-        (mkDiskoChecks nixosConfigurations)
-        bootstrapScripts.checks
-        lxcScripts.checks
-        deployCfgs.checks
-      ];
     in
     # FIXME: maybe there are two layers to this. The blueprint, and then the mapping to flake outputs.
     {
@@ -705,7 +713,7 @@ let
 
       deployer.hosts = deployCfgs.autoHosts;
 
-      checks = lib.recursiveUpdate (eachSystem (
+      checks = eachSystem (
         { system, pkgs, ... }:
         let
           formatterCheck = pkgs.runCommand "formatter-check" { buildInputs = [ pkgs.nixfmt-tree ]; } ''
@@ -730,15 +738,13 @@ let
               }) (filterPlatforms system (package.passthru.tests or { })))
             ) (filterPlatforms system (packages.${system} or { }))
           ))
-          # add nixos system closures to checks
           (withPrefix "nixos-" (
-            lib.mapAttrs (_: x: x.config.system.build.toplevel) (
+            lib.mapAttrs mkHostCheck (
               lib.filterAttrs (_: x: x.pkgs.stdenv.hostPlatform.system == system) nixosConfigurations
             )
           ))
-          # add darwin system closures to checks
           (withPrefix "darwin-" (
-            lib.mapAttrs (_: x: x.system) (
+            lib.mapAttrs mkHostCheck (
               lib.filterAttrs (_: x: x.pkgs.stdenv.hostPlatform.system == system) darwinConfigurations
             )
           ))
@@ -756,7 +762,7 @@ let
             )
           ))
         ])
-      )) extraChecks;
+      );
     };
 
   # Create a new flake
