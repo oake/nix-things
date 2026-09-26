@@ -487,7 +487,7 @@ let
         let
           pkgs = cfg.pkgs;
           main =
-            if cfg.config.deploy.enable then
+            if cfg.config.infra.deploy.enable then
               mkDeployActivate cfg
             else if isDarwinHost cfg then
               cfg.system
@@ -504,26 +504,39 @@ let
               name = "disko";
               path = cfg.config.system.build.diskoScript;
             };
+          check =
+            if extras == [ ] then
+              main
+            else
+              pkgs.linkFarm "check-${name}" (
+                [
+                  {
+                    name = "main";
+                    path = main;
+                  }
+                ]
+                ++ extras
+              );
         in
-        if extras == [ ] then
-          main
-        else
-          pkgs.linkFarm "check-${name}" (
-            [
-              {
-                name = "main";
-                path = main;
-              }
-            ]
-            ++ extras
-          );
+        check
+        // {
+          meta = (check.meta or { }) // {
+            infra = {
+              inherit name;
+              platform = if isDarwinHost cfg then "darwin" else "nixos";
+              automatic = !isDarwinHost cfg && cfg.config.infra.deploy.enable && cfg.config.infra.deploy.auto;
+              system = toString (if isDarwinHost cfg then cfg.system else cfg.config.system.build.toplevel);
+              activation = toString main;
+            };
+          };
+        };
 
       mkDeployNodes =
         cfgs:
         let
-          deployCfgs = lib.filterAttrs (_: c: c.config.deploy.enable) cfgs;
+          deployCfgs = lib.filterAttrs (_: c: c.config.infra.deploy.enable) cfgs;
           nodes = lib.mapAttrs (_: cfg: {
-            hostname = cfg.config.deploy.fqdn;
+            hostname = cfg.config.infra.deploy.fqdn;
             profiles.system = {
               sshUser = "deploy";
               user = "root";
@@ -534,13 +547,10 @@ let
             # so it never sees its own confirmation unless the path is already canonical.
             // lib.optionalAttrs (isDarwinHost cfg) { tempPath = "/private/tmp"; };
           }) deployCfgs;
-          # Read by services.deployer from each commit it deploys.
-          autoHosts = lib.attrNames (
-            lib.filterAttrs (_: cfg: !isDarwinHost cfg && cfg.config.deploy.auto.enable) deployCfgs
-          );
+
         in
         {
-          inherit nodes autoHosts;
+          inherit nodes;
         };
 
       mkPerHostScripts =
@@ -710,8 +720,6 @@ let
       deploy = {
         nodes = deployCfgs.nodes;
       };
-
-      deployer.hosts = deployCfgs.autoHosts;
 
       checks = eachSystem (
         { system, pkgs, ... }:

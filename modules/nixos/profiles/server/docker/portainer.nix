@@ -20,7 +20,7 @@ in
         };
       host = lib.mkOption {
         type = lib.types.str;
-        default = config.deploy.fqdn;
+        default = config.infra.deploy.fqdn;
         description = "Hostname for traefik to route to portainer from";
       };
       entrypoint = lib.mkOption {
