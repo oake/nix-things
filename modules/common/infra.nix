@@ -47,9 +47,9 @@ in
         description = "SSH public keys authorized for the deploy user.";
       };
       fqdn = mkOption {
-        type = types.str;
-        default = (lib.strings.removePrefix "lxc-" hostName) + "." + config.me.lanDomain;
-        description = "Fully qualified domain name used for deployment.";
+        type = types.addCheck (types.listOf types.str) (hosts: hosts != [ ]);
+        default = [ ((lib.strings.removePrefix "lxc-" hostName) + "." + config.me.lanDomain) ];
+        description = "Ordered deployment addresses. deploy-rs uses the first; infra-deployer tries subsequent addresses if unreachable.";
       };
     };
   };

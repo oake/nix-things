@@ -536,7 +536,7 @@ let
         let
           deployCfgs = lib.filterAttrs (_: c: c.config.infra.deploy.enable) cfgs;
           nodes = lib.mapAttrs (_: cfg: {
-            hostname = cfg.config.infra.deploy.fqdn;
+            hostname = lib.head cfg.config.infra.deploy.fqdn;
             profiles.system = {
               sshUser = "deploy";
               user = "root";
