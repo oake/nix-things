@@ -77,6 +77,10 @@ in
               options = [ "NOPASSWD" ];
             }
             {
+              command = "/run/current-system/sw/bin/systemctl reboot --no-block";
+              options = [ "NOPASSWD" ];
+            }
+            {
               command = "/run/current-system/sw/bin/rm /tmp/deploy-rs-canary-*";
               options = [ "NOPASSWD" ];
             }
@@ -99,13 +103,16 @@ in
         serviceConfig = {
           Type = "oneshot";
           DynamicUser = true;
-          StateDirectory = "infra-beacon";
+          RuntimeDirectory = "infra-beacon";
+          RuntimeDirectoryPreserve = true;
           # A missed report must not roll back activation. The timer retries;
           # the beacon still logs the error (including an unenrolled host).
           SuccessExitStatus = [ 1 ];
           ExecStart = lib.escapeShellArgs (
             [
               "${pkgs.infra-beacon}/bin/infra-beacon"
+              "-state"
+              "/run/infra-beacon/receipt.json"
               "-hub"
               cfg.hubUrl
               "-host"
