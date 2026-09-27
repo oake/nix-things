@@ -24,7 +24,11 @@ let
     ${lib.optionalString (cfg.hub.githubTokenFile != null) ''
       export GITHUB_TOKEN="$(cat "$CREDENTIALS_DIRECTORY/github-token")"
     ''}
-    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort} -dix ${pkgs.dix-snapshots}/bin/dix
+    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort} -dix ${pkgs.dix-snapshots}/bin/dix -oai-base-url ${lib.escapeShellArg cfg.hub.oaiBaseUrl} ${
+      lib.optionalString (
+        cfg.hub.oaiTokenFile != null
+      ) ''-oai-token-file "$CREDENTIALS_DIRECTORY/oai-token"''
+    }
   '';
 in
 {
@@ -42,6 +46,16 @@ in
         type = types.port;
         default = 8787;
         description = "HTTP port. The hub listens on 0.0.0.0.";
+      };
+      oaiTokenFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Runtime OpenAI token file for stored failed-check summaries.";
+      };
+      oaiBaseUrl = mkOption {
+        type = types.str;
+        default = "https://api.openai.com/v1";
+        description = "OpenAI-compatible API base URL.";
       };
       githubTokenFile = mkOption {
         type = types.nullOr types.str;
@@ -85,6 +99,7 @@ in
         serviceConfig = {
           Type = "oneshot";
           DynamicUser = true;
+          StateDirectory = "infra-beacon";
           # A missed report must not roll back activation. The timer retries;
           # the beacon still logs the error (including an unenrolled host).
           SuccessExitStatus = [ 1 ];
@@ -168,9 +183,9 @@ in
           Group = "infra-hub";
           StateDirectory = "infra-hub";
           ExecStart = hubCommand;
-          LoadCredential = lib.optional (
-            cfg.hub.githubTokenFile != null
-          ) "github-token:${cfg.hub.githubTokenFile}";
+          LoadCredential =
+            lib.optional (cfg.hub.githubTokenFile != null) "github-token:${cfg.hub.githubTokenFile}"
+            ++ lib.optional (cfg.hub.oaiTokenFile != null) "oai-token:${cfg.hub.oaiTokenFile}";
           Restart = "on-failure";
           NoNewPrivileges = true;
           ProtectSystem = "strict";

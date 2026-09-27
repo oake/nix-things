@@ -39,6 +39,8 @@
           config.infra.hubUrl
           "-host"
           "${config.infra.flakeRepo}/${config.networking.hostName}"
+          "-state"
+          "/var/db/infra-beacon/receipt.json"
         ]
         ++ lib.optionals (config.infra.hubTokenFile != null) [
           "-token-file"

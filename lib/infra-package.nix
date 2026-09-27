@@ -7,10 +7,10 @@ pkgs.buildGoModule {
   src = pkgs.fetchFromGitHub {
     owner = "oake";
     repo = "infra";
-    rev = "878b518a1a6deca7db70824fd4e0f554604f2210";
-    hash = "sha256-XH2q8Y1sqt3uftevEu+ogH65rCMdninD6sl8RbsoRE0=";
+    rev = "d7da1602c91b83bdfa67710bba65beeb50295f3e";
+    hash = "sha256-+ImZfe7rGJNEjhOLewqubAR7xAVlRsbNaZNxo4hxYgI=";
   };
-  version = "unstable-2026-09-26";
+  version = "unstable-2026-09-27";
   vendorHash = "sha256-UTkp3qXSpq/hljlAh4CWMhg4T0r7yJwDR/CPWqhtNe4=";
   subPackages = [ "cmd/${pname}" ];
   env.CGO_ENABLED = 0;
