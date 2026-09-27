@@ -7,8 +7,8 @@ pkgs.buildGoModule {
   src = pkgs.fetchFromGitHub {
     owner = "oake";
     repo = "infra";
-    rev = "d7da1602c91b83bdfa67710bba65beeb50295f3e";
-    hash = "sha256-+ImZfe7rGJNEjhOLewqubAR7xAVlRsbNaZNxo4hxYgI=";
+    rev = "deb8bc30f5043a6d05f093e6874cc4221b0c10be";
+    hash = "sha256-9cOeSpDNymBW3Apt6orgxxeM0gVvPD0Vp8nJJDz+c48=";
   };
   version = "unstable-2026-09-27";
   vendorHash = "sha256-UTkp3qXSpq/hljlAh4CWMhg4T0r7yJwDR/CPWqhtNe4=";
