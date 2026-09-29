@@ -9,8 +9,8 @@ pkgs.buildGoModule {
       source = pkgs.fetchFromGitHub {
         owner = "oake";
         repo = "infra";
-        rev = "e924a5c5dcbc96cf7038710515e1d0bd04c6d862";
-        hash = "sha256-YWKj2VnxArOLpuRrGzghXNKD7ik4PcFHmqg42m8q35I=";
+        rev = "ae599ac0cbbc55c3e5b1823f5421428141cc2b70";
+        hash = "sha256-F3SuX1lvbELgvjKF+Wqu2rF4z+GTwwffyv/FJvjRNiE=";
       };
       component = pkgs.lib.removePrefix "infra-" pname;
     in
