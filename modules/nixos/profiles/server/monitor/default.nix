@@ -7,6 +7,7 @@
   imports = [
     ./nginx.nix
     ./graylog.nix
+    ./victorialogs.nix
   ];
 
   options.profiles.server.monitor = {

@@ -6,6 +6,19 @@
 }:
 let
   cfg = config.monitoring;
+  victoriaOutput = {
+    name = "http";
+    match = "*";
+
+    host = cfg.logs.target;
+    port = cfg.logs.victoria.port;
+    uri = "/insert/jsonline?_stream_fields=host,log_source,syslog_identifier,compose_service&_msg_field=message&_time_field=date";
+    format = "json_lines";
+    json_date_key = "date";
+    json_date_format = "iso8601";
+    retry_limit = "no_limits";
+    "storage.total_limit_size" = "1G";
+  };
 in
 {
   config = lib.mkMerge [
@@ -17,7 +30,10 @@ in
           patches = (old.patches or [ ]) ++ [ ./fluent-bit-cursor-on-change.patch ];
         });
         settings = {
-          service.log_level = "warn";
+          service = {
+            log_level = "warn";
+            "storage.path" = "/var/lib/fluent-bit/buffer";
+          };
           pipeline = {
             inputs =
               (lib.optional cfg.logs.system.enable {
@@ -26,12 +42,15 @@ in
 
                 db = "/var/lib/fluent-bit/systemd.db";
                 read_from_tail = true;
+                "storage.type" = "filesystem";
+                "storage.pause_on_chunks_overlimit" = "on";
                 lowercase = true;
                 strip_underscores = true;
               })
               ++ (lib.optional cfg.logs.docker.enable {
                 name = "forward";
                 unix_path = "/run/fluent-bit/fluent-bit.sock";
+                "storage.type" = "filesystem";
               });
             filters =
               (lib.optional cfg.logs.system.enable {
@@ -76,8 +95,10 @@ in
                 mode = "tcp";
 
                 gelf_short_message_key = "message";
+                "storage.total_limit_size" = "1G";
               }
-            ];
+            ]
+            ++ lib.optional cfg.logs.victoria.enable victoriaOutput;
           };
         };
       };
