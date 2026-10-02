@@ -6,6 +6,17 @@
 }:
 let
   cfg = config.monitoring;
+  # journald priority -> level names VictoriaLogs' UI recognises
+  levelNames = [
+    "emerg"
+    "alert"
+    "crit"
+    "err"
+    "warning"
+    "notice"
+    "info"
+    "debug"
+  ];
   output =
     cfg.logs.mkOutput [
       "host"
@@ -51,17 +62,26 @@ in
                 "storage.type" = "filesystem";
               });
             filters =
-              (lib.optional cfg.logs.system.enable {
-                name = "modify";
-                match = "journal.*";
-                add = [
-                  "log_source systemd"
-                ];
-                rename = [
-                  "hostname host"
-                  "priority level"
-                ];
-              })
+              (lib.optionals cfg.logs.system.enable (
+                [
+                  {
+                    name = "modify";
+                    match = "journal.*";
+                    add = [
+                      "log_source systemd"
+                    ];
+                    rename = [
+                      "hostname host"
+                    ];
+                  }
+                ]
+                ++ lib.imap0 (priority: level: {
+                  name = "modify";
+                  match = "journal.*";
+                  condition = "Key_value_equals priority ${toString priority}";
+                  add = "level ${level}";
+                }) levelNames
+              ))
               ++ (lib.optionals cfg.logs.docker.enable [
                 {
                   name = "nest";
