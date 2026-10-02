@@ -23,7 +23,7 @@ in
         KEY = cfg.sshKey;
         TOKEN_FILE = "%d/token";
         DISABLE_SSH = "true";
-        SKIP_GPU = lib.boolToString (cfg.gpu == null);
+        SKIP_GPU = cfg.gpu == null;
       }
       // lib.optionalAttrs (cfg.namePrefixes != [ ]) {
         SYSTEM_NAME = lib.concatStringsSep " / " (cfg.namePrefixes ++ [ config.networking.hostName ]);
@@ -32,10 +32,10 @@ in
         SENSORS = "";
       }
       // lib.optionalAttrs (cfg.gpu == "amd") {
-        GPU_COLLECTOR = "amd_sysfs";
+        GPU_COLLECTOR = [ "amd_sysfs" ];
       }
       // lib.optionalAttrs (cfg.gpu == "nvidia") {
-        GPU_COLLECTOR = "nvml";
+        GPU_COLLECTOR = [ "nvml" ];
         LD_LIBRARY_PATH = "/run/opengl-driver/lib";
       };
     };
@@ -53,7 +53,6 @@ in
       NoNewPrivileges = lib.mkForce true;
       RemoveIPC = true;
       LoadCredential = [ "token:${cfg.tokenFile}" ];
-      PrivateDevices = lib.mkIf (cfg.gpu == "nvidia") (lib.mkForce false);
     };
 
     disko.simple.impermanence.persist.directories = [
