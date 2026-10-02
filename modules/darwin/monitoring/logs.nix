@@ -47,26 +47,17 @@ let
       ];
       outputs = [
         {
-          name = "gelf";
+          name = "http";
           match = "*";
           host = cfg.target;
           port = cfg.port;
-          mode = "tcp";
-          gelf_short_message_key = "message";
+          uri = "/insert/jsonline?_stream_fields=host,log_source&_msg_field=message&_time_field=date";
+          format = "json_lines";
+          json_date_key = "date";
+          json_date_format = "iso8601";
           retry_limit = "no_limits";
         }
-      ]
-      ++ lib.optional cfg.victoria.enable {
-        name = "http";
-        match = "*";
-        host = cfg.target;
-        port = cfg.victoria.port;
-        uri = "/insert/jsonline?_stream_fields=host,log_source&_msg_field=message&_time_field=date";
-        format = "json_lines";
-        json_date_key = "date";
-        json_date_format = "iso8601";
-        retry_limit = "no_limits";
-      };
+      ];
     };
   };
 in

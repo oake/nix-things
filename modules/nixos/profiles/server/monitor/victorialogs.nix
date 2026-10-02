@@ -35,10 +35,10 @@ in
         ];
       };
       nginx.virtualHosts.${cfg.webDomain}.locations = {
-        "/victorialogs" = {
-          return = "301 /victorialogs/select/vmui/";
+        "/logs" = {
+          return = "301 /logs/select/vmui/";
         };
-        "/victorialogs/" = {
+        "/logs/" = {
           proxyPass = "http://127.0.0.1:9428/";
           proxyWebsockets = true;
           extraConfig = ''

@@ -6,13 +6,13 @@
 }:
 let
   cfg = config.monitoring;
-  victoriaOutput = {
+  output = {
     name = "http";
     match = "*";
 
     host = cfg.logs.target;
-    port = cfg.logs.victoria.port;
-    uri = "/insert/jsonline?_stream_fields=host,log_source,syslog_identifier,compose_service&_msg_field=message&_time_field=date";
+    port = cfg.logs.port;
+    uri = "/insert/jsonline?_stream_fields=host,log_source,syslog_identifier,compose_stack,compose_service&_msg_field=message&_time_field=date";
     format = "json_lines";
     json_date_key = "date";
     json_date_format = "iso8601";
@@ -85,20 +85,7 @@ in
                   ];
                 }
               ]);
-            outputs = [
-              {
-                name = "gelf";
-                match = "*";
-
-                host = cfg.logs.target;
-                port = cfg.logs.port;
-                mode = "tcp";
-
-                gelf_short_message_key = "message";
-                "storage.total_limit_size" = "1G";
-              }
-            ]
-            ++ lib.optional cfg.logs.victoria.enable victoriaOutput;
+            outputs = [ output ];
           };
         };
       };

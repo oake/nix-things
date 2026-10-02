@@ -6,7 +6,7 @@
 {
   imports = [
     ./nginx.nix
-    ./graylog.nix
+    ./opensearch.nix
     ./victorialogs.nix
   ];
 
