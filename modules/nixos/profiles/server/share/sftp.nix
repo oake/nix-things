@@ -6,7 +6,7 @@
 }:
 let
   sftpShell = pkgs.writeShellScriptBin "sftpgo-subsys" ''
-    exec ${pkgs.sftpgo}/bin/sftpgo startsubsys -j
+    exec ${pkgs.sftpgo}/bin/sftpgo startsubsys -j --log-level warn
   '';
 in
 {
