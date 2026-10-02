@@ -102,6 +102,11 @@ in
                     "com.docker.compose.service compose_service"
                   ];
                 }
+                {
+                  name = "grep";
+                  match = "docker.*";
+                  exclude = "message ^\\s*$";
+                }
               ]);
             outputs = [ output ];
           };
