@@ -46,20 +46,25 @@ let
         }
       ];
       outputs = [
-        {
-          name = "http";
-          match = "*";
-          host = cfg.target;
-          port = cfg.port;
-          uri = "/insert/jsonline?_stream_fields=host,log_source&_msg_field=message&_time_field=date";
-          format = "json_lines";
-          json_date_key = "date";
-          json_date_format = "iso8601";
-          retry_limit = "no_limits";
-        }
+        (cfg.mkOutput [
+          "host"
+          "log_source"
+        ])
       ];
     };
   };
+  start = pkgs.writeShellScript "monitoring-logs-start" ''
+    ${lib.optionalString (cfg.tokenFile != null) ''
+      if [ ! -r ${cfg.tokenFile} ]; then
+        echo "monitoring-logs: ${cfg.tokenFile} is not readable yet, retrying"
+        exit 1
+      fi
+      set -a
+      . ${cfg.tokenFile}
+      set +a
+    ''}
+    exec ${fluent-bit}/bin/fluent-bit --config ${settings}
+  '';
 in
 {
   config = lib.mkMerge [
@@ -73,11 +78,7 @@ in
     }
     (lib.mkIf cfg.system.enable {
       launchd.daemons.monitoring-logs.serviceConfig = {
-        ProgramArguments = [
-          "${fluent-bit}/bin/fluent-bit"
-          "--config"
-          "${settings}"
-        ];
+        ProgramArguments = [ "${start}" ];
         UserName = "root";
         RunAtLoad = true;
         KeepAlive = true;

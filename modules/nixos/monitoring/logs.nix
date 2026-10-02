@@ -6,19 +6,17 @@
 }:
 let
   cfg = config.monitoring;
-  output = {
-    name = "http";
-    match = "*";
-
-    host = cfg.logs.target;
-    port = cfg.logs.port;
-    uri = "/insert/jsonline?_stream_fields=host,log_source,syslog_identifier,compose_stack,compose_service&_msg_field=message&_time_field=date";
-    format = "json_lines";
-    json_date_key = "date";
-    json_date_format = "iso8601";
-    retry_limit = "no_limits";
-    "storage.total_limit_size" = "1G";
-  };
+  output =
+    cfg.logs.mkOutput [
+      "host"
+      "log_source"
+      "syslog_identifier"
+      "compose_stack"
+      "compose_service"
+    ]
+    // {
+      "storage.total_limit_size" = "1G";
+    };
 in
 {
   config = lib.mkMerge [
@@ -94,6 +92,9 @@ in
         RuntimeDirectoryMode = "0755";
         StateDirectory = "fluent-bit";
         StateDirectoryMode = "0755";
+      }
+      // lib.optionalAttrs (cfg.logs.tokenFile != null) {
+        EnvironmentFile = cfg.logs.tokenFile;
       };
       systemd.services.fluent-bit.environment = {
         HOSTNAME = "%H";
