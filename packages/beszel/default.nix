@@ -14,7 +14,7 @@ let
 in
 buildGo127Module (finalAttrs: {
   inherit pname;
-  version = "0.20.0";
+  version = "0.21.0";
 
   # Enable the NVML collector on glibc-based Linux builds.
   tags = lib.optionals stdenv.hostPlatform.isGnu [ "glibc" ];
@@ -23,7 +23,7 @@ buildGo127Module (finalAttrs: {
     owner = "henrygd";
     repo = "beszel";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-F7N9IVqOk+pNrH1wIqkNthLNhqW+HmTkJB43RwBMWpo=";
+    hash = "sha256-/9vY7dY+pwPKj3cT3zXUJEu+FVFMYdT5xmlTTWjTsQ8=";
   };
 
   webui = buildNpmPackage {
@@ -60,7 +60,7 @@ buildGo127Module (finalAttrs: {
     npmDepsHash = "sha256-mYAD8FrQwa+F/VgGxFpe8vqucfZaM0PmY+gJJqw1IKk=";
   };
 
-  vendorHash = "sha256-rIDsv9BL4k04dMXm0Sqbdjt+W98SSGEaWYP/laBVFrk=";
+  vendorHash = "sha256-xQToxS84d3xF+3ebpj6+010dqrRaNkRkGLh+tJpyttA=";
 
   preBuild = ''
     mkdir -p internal/site/dist
