@@ -45,16 +45,18 @@ in
       })
       {
         services.netbird.clients.default = {
-          environment =
-            lib.optionalAttrs (cfg.managementUrl != null) {
-              NB_MANAGEMENT_URL = cfg.managementUrl;
-            }
-            // lib.optionalAttrs (cfg.adminUrl != null) {
-              NB_ADMIN_URL = cfg.adminUrl;
-            }
-            // lib.optionalAttrs (cfg.setupKeyFile != null) {
-              NB_SETUP_KEY_FILE = cfg.setupKeyFile;
-            };
+          environment = {
+            NB_DISABLE_SSH_CONFIG = "true";
+          }
+          // lib.optionalAttrs (cfg.managementUrl != null) {
+            NB_MANAGEMENT_URL = cfg.managementUrl;
+          }
+          // lib.optionalAttrs (cfg.adminUrl != null) {
+            NB_ADMIN_URL = cfg.adminUrl;
+          }
+          // lib.optionalAttrs (cfg.setupKeyFile != null) {
+            NB_SETUP_KEY_FILE = cfg.setupKeyFile;
+          };
           name = "netbird";
           interface = "nb0";
           port = 51820;
