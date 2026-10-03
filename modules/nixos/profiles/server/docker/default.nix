@@ -23,6 +23,12 @@ in
       {
         profiles.server.enable = lib.mkForce true;
 
+        networking.dhcpcd.denyInterfaces = [
+          "veth*"
+          "docker*"
+          "br-*"
+        ];
+
         virtualisation.docker = {
           enable = true;
 
