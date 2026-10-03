@@ -102,6 +102,8 @@ in
         wants = [ "network-online.target" ] ++ lib.optional cfg.hub.enable "infra-hub.service";
         serviceConfig = {
           Type = "oneshot";
+          LogLevelMax = "notice";
+          SyslogLevel = "warning";
           DynamicUser = true;
           RuntimeDirectory = "infra-beacon";
           RuntimeDirectoryPreserve = true;
