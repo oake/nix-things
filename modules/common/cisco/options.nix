@@ -193,7 +193,7 @@ let
     options = {
       button = mkOption {
         type = types.ints.positive;
-        description = "Physical button number: 1-8 on the base phone, continuing on declared expansion modules.";
+        description = "Button number: 1-8 on the base phone, 9-32 on the first 24-key expansion module, and 33-56 on the second. Both expansion-module pages are configured here.";
       };
       kind = mkOption {
         type = types.enum buttonKinds;
@@ -284,27 +284,47 @@ let
     };
   });
 
-  addOnModuleType = types.submodule (_: {
-    options = {
-      index = mkOption {
-        type = types.ints.between 1 2;
-        description = "Physical expansion-module position.";
+  addOnModuleType = types.submodule (
+    { config, ... }: {
+      options = {
+        index = mkOption {
+          type = types.ints.between 1 2;
+          description = "Physical expansion-module position.";
+        };
+        deviceType = mkOption {
+          type = types.enum [
+            "7915"
+            "7916"
+          ];
+          description = "Supported expansion module.";
+        };
+        deviceLine = mkOption {
+          type = types.enum [
+            12
+            24
+          ];
+          default = 24;
+          description = "Number of programmable assignments: 12 for one page, or 24 for both pages of the module's 12 physical keys.";
+        };
+        firmware = mkOption {
+          type = types.nullOr types.package;
+          default = if config.deviceType == "7916" then pkgs.cisco-7916-firmware else null;
+          defaultText = lib.literalExpression ''if deviceType == "7916" then pkgs.cisco-7916-firmware else null'';
+          description = ''
+            Expansion-module firmware to serve alongside the phone firmware.
+            Files must be at the package root, with a loadInformation attribute
+            containing the load ID. Null allows firmware hosted elsewhere.
+          '';
+        };
+        loadInformation = mkOption {
+          type = types.str;
+          default = if config.firmware == null then "" else config.firmware.loadInformation;
+          defaultText = lib.literalExpression ''if firmware == null then "" else firmware.loadInformation'';
+          description = "Expansion-module firmware load ID, without the .SBN extension. Defaults to the selected firmware package's loadInformation.";
+        };
       };
-      deviceType = mkOption {
-        type = types.enum [
-          "7915"
-          "7916"
-        ];
-        description = "Supported expansion module.";
-      };
-      deviceLine = mkOption {
-        type = types.ints.positive;
-        default = 24;
-        description = "Number of keys on the module.";
-      };
-      loadInformation = stringOption "" "Expansion-module firmware load ID.";
-    };
-  });
+    }
+  );
 
   phoneServiceType = types.submodule (_: {
     options = {
@@ -1625,6 +1645,12 @@ let
       {
         assertion = builtins.length d.addOnModules <= 2;
         message = "cisco7975g ${deviceName}: at most two expansion modules are supported";
+      }
+      {
+        assertion =
+          lib.sort builtins.lessThan (map (m: m.index) d.addOnModules)
+          == lib.range 1 (builtins.length d.addOnModules);
+        message = "cisco7975g ${deviceName}: expansion-module positions must be unique and contiguous starting at 1";
       }
       {
         assertion = builtins.length d.srst.addresses <= 3;

@@ -7,6 +7,11 @@
 
 let
   cfg = config.services.cisco;
+  addOnFirmware = lib.unique (
+    builtins.filter (firmware: firmware != null) (
+      lib.concatMap (device: map (m: m.firmware) device.addOnModules) (builtins.attrValues cfg.devices)
+    )
+  );
   wallpaperDirectory = "Desktops/320x216x16";
   wallpaperFiles = lib.unique (
     builtins.filter (wallpaperFile: wallpaperFile != null) (
@@ -37,6 +42,9 @@ in
           ''
             mkdir -p "$out"
             cp -R ${cfg.firmware}/. "$out/"
+            ${lib.concatMapStringsSep "\n" (firmware: ''
+              cp -R ${firmware}/. "$out/"
+            '') addOnFirmware}
 
             ${lib.concatMapStringsSep "\n" (name: ''
               mkdir -p "$out/${builtins.dirOf name}"
