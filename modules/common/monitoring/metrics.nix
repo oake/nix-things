@@ -2,6 +2,11 @@
 {
   options.monitoring.metrics = {
     enable = lib.mkEnableOption "pushing metrics to Beszel";
+    smart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Collect SMART disk metrics. Defaults to disabled in NixOS LXC containers.";
+    };
     namePrefixes = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];

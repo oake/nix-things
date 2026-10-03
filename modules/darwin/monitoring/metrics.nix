@@ -43,9 +43,12 @@ in
           SKIP_GPU = lib.boolToString (cfg.gpu == null);
           SKIP_SYSTEMD = "true";
           PATH =
-            lib.makeBinPath ([ pkgs.smartmontools ] ++ lib.optional (cfg.gpu == "apple") pkgs.macmon)
+            lib.makeBinPath (
+              lib.optional cfg.smart pkgs.smartmontools ++ lib.optional (cfg.gpu == "apple") pkgs.macmon
+            )
             + ":/usr/bin:/bin:/usr/sbin:/sbin";
         }
+        // lib.optionalAttrs (!cfg.smart) { SMART_DEVICES = ""; }
         // lib.optionalAttrs (cfg.namePrefixes != [ ]) {
           SYSTEM_NAME = lib.concatStringsSep " / " (cfg.namePrefixes ++ [ config.networking.hostName ]);
         }

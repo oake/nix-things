@@ -8,6 +8,7 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
+    monitoring.metrics.smart = lib.mkDefault (!config.lxc.enable);
     assertions = [
       {
         assertion = cfg.gpu != "apple";
@@ -17,13 +18,16 @@ in
     services.beszel.agent = {
       enable = true;
       dataDir = "/var/lib/beszel-agent";
-      smartmon.enable = !config.lxc.enable;
+      smartmon.enable = cfg.smart;
       environment = {
         HUB_URL = cfg.targetUrl;
         KEY = cfg.sshKey;
         TOKEN_FILE = "%d/token";
         DISABLE_SSH = "true";
         SKIP_GPU = cfg.gpu == null;
+      }
+      // lib.optionalAttrs (!cfg.smart) {
+        SMART_DEVICES = "";
       }
       // lib.optionalAttrs (cfg.namePrefixes != [ ]) {
         SYSTEM_NAME = lib.concatStringsSep " / " (cfg.namePrefixes ++ [ config.networking.hostName ]);
