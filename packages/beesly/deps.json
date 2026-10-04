@@ -1,0 +1,22 @@
+[
+  {
+    "pname": "DotNetEnv",
+    "version": "3.2.0",
+    "hash": "sha256-ExiDBmISvzgaKxKgKNa+r2pjvdmIh1vsL5pWmtCjb2U="
+  },
+  {
+    "pname": "NetDaemon.Client",
+    "version": "26.36.0",
+    "hash": "sha256-1nUg8ptdQs0K5lohagI/vBlAbCpnI08l6CdEsy64Dr8="
+  },
+  {
+    "pname": "Superpower",
+    "version": "3.0.0",
+    "hash": "sha256-5MNmhBDYyOs+sTH364Qdn+Ck328BAQaVC1KMQ7yK2Vw="
+  },
+  {
+    "pname": "System.Reactive",
+    "version": "7.0.0",
+    "hash": "sha256-GB3SYMzwQzR4GhS4lq4pX1kaDqhWfREvaAdq8Q+nz5M="
+  }
+]
