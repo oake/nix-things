@@ -594,6 +594,13 @@ let
 
   deviceType = types.submodule (_: {
     options = {
+      ip = mkOption {
+        type = types.nullOr (
+          types.strMatching "(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])([.](25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}"
+        );
+        example = "10.0.4.84";
+        description = "Reserved phone IPv4 address used for server access control; this does not change the phone's network configuration.";
+      };
       macAddress = mkOption {
         type = types.str;
         description = ''
