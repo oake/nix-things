@@ -20,6 +20,11 @@
       setFlakeRegistry = false;
     };
 
+    system.nixos = {
+      versionSuffix = "";
+      revision = null;
+    };
+
     environment.defaultPackages = [ ];
 
     programs.bash.completion.enable = false;

@@ -28,9 +28,6 @@
       age.identityPaths = [ "/nix-lxc/agenix_pq_key" ];
 
       nixpkgs.hostPlatform = "x86_64-linux";
-
-      # it's very sad to lose the configuration revision but we end up producing useless tarballs on each commit otherwise
-      system.configurationRevision = lib.mkForce null;
     })
     {
       proxmoxLXC.enable = false;
