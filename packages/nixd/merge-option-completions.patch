@@ -73,9 +73,9 @@
  bool hasConcreteChild(const Node &N) {
    for (const Node *Child : N.children()) {
      if (Child)
-@@ -252,12 +279,13 @@
+@@ -269,12 +296,13 @@
      };
-     for (const nixd::OptionField &Field : Names) {
+     for (const nixd::OptionField &Field : Names.Items) {
        if (!Field.Description) {
 -        addItem(Items, CompletionItem{
 -                           .label = Field.Name,
@@ -93,7 +93,7 @@
          continue;
        }
  
-@@ -268,7 +296,7 @@
+@@ -285,7 +313,7 @@
        // the user pick between the sample code the option author suggested
        // and its default value - useful when an option only has one of the
        // two, or when the user wants the default as a starting point.
@@ -102,7 +102,7 @@
        if (Desc.Type) {
          std::string TypeName = Desc.Type->Name.value_or("");
          std::string TypeDesc = Desc.Type->Description.value_or("");
-@@ -301,14 +329,13 @@
+@@ -318,14 +346,13 @@
          CompletionItem Item{
              .label = std::move(Label),
              .kind = OptionKind,
@@ -118,7 +118,7 @@
        };
  
        bool Emitted = false;
-@@ -326,12 +353,11 @@
+@@ -343,12 +370,11 @@
          CompletionItem Item{
              .label = Field.Name,
              .kind = OptionKind,
@@ -131,9 +131,9 @@
 +        addOptionItem(Items, std::move(Item), ModuleOrigin, TypeDetail);
        }
      }
-   }
-@@ -340,22 +366,50 @@
- void completeAttrName(const lspserver::Range EditRange,
+     return Names.IsIncomplete;
+@@ -358,24 +384,52 @@
+ bool completeAttrName(const lspserver::Range EditRange,
                        const std::vector<std::string> &Scope,
                        const std::string &Prefix,
 -                      Controller::OptionMapTy &Options, bool CompletionSnippets,
@@ -141,7 +141,6 @@
 +                      const std::map<std::string, int> &OptionOrder,
 +                      bool CompletionSnippets,
                        std::vector<CompletionItem> &List) {
--  for (const auto &[Name, Provider] : Options) {
 +  // Query every option set before applying the size limit, so items shared
 +  // by several sets are fully merged and later sets are not starved.
 +  // Visit sets in their configured "order" (unordered ones last, keeping the
@@ -159,6 +158,8 @@
 +                   [&](const std::string &A, const std::string &B) {
 +                     return Rank(A) < Rank(B);
 +                   });
+   bool IsIncomplete = false;
+-  for (const auto &[Name, Provider] : Options) {
 +  std::vector<CompletionItem> Merged;
 +  for (const std::string &Name : Names) {
      AttrSetClient *Client = Options.at(Name)->client();
@@ -167,8 +168,8 @@
        continue;
      }
      OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
--    OCP.completeOptions(EditRange, Scope, Prefix, List);
-+    OCP.completeOptions(EditRange, Scope, Prefix, Merged);
+-    IsIncomplete |= OCP.completeOptions(EditRange, Scope, Prefix, List);
++    IsIncomplete |= OCP.completeOptions(EditRange, Scope, Prefix, Merged);
    }
 +  std::stable_sort(Merged.begin(), Merged.end(),
 +                   [](const CompletionItem &A, const CompletionItem &B) {
@@ -176,9 +177,10 @@
 +                   });
 +  for (CompletionItem &Item : Merged)
 +    addItem(List, std::move(Item));
+   return IsIncomplete;
  }
  
- void completeAttrPath(const lspserver::Range EditRange, const Node &N,
+ bool completeAttrPath(const lspserver::Range EditRange, const Node &N,
                        const ParentMapAnalysis &PM, std::mutex &OptionsLock,
 -                      Controller::OptionMapTy &Options, bool Snippets,
 +                      Controller::OptionMapTy &Options,
@@ -187,26 +189,27 @@
                        std::vector<lspserver::CompletionItem> &Items) {
    std::vector<std::string> Scope;
    using PathResult = FindAttrPathResult;
-@@ -366,7 +420,8 @@
+@@ -386,8 +440,8 @@
      Scope.pop_back();
      {
        std::lock_guard _(OptionsLock);
--      completeAttrName(EditRange, Scope, Prefix, Options, Snippets, Items);
-+      completeAttrName(EditRange, Scope, Prefix, Options, OptionOrder, Snippets,
-+                       Items);
+-      return completeAttrName(EditRange, Scope, Prefix, Options, Snippets,
+-                              Items);
++      return completeAttrName(EditRange, Scope, Prefix, Options, OptionOrder,
++                              Snippets, Items);
      }
    }
- }
-@@ -508,7 +563,8 @@
-           }
-           case Node::NK_ExprAttrs: {
-             completeAttrPath(EditRange, N, PM, OptionsLock, Options,
--                             ClientCaps.CompletionSnippets, List.items);
-+                             OptionOrder, ClientCaps.CompletionSnippets,
-+                             List.items);
-             return List;
-           }
-           default:
+   return false;
+@@ -539,7 +593,8 @@
+         case Node::NK_ExprAttrs: {
+           ProviderIncomplete =
+               completeAttrPath(EditRange, N, PM, OptionsLock, Options,
+-                               ClientCaps.CompletionSnippets, List.items);
++                               OptionOrder, ClientCaps.CompletionSnippets,
++                               List.items);
+           break;
+         }
+         default:
 --- a/lib/Controller/Configuration.cpp
 +++ b/lib/Controller/Configuration.cpp
 @@ -28,7 +28,7 @@
