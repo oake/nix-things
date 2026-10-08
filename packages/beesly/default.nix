@@ -1,12 +1,12 @@
 { pkgs, pname }:
 pkgs.buildDotnetModule {
   inherit pname;
-  version = "0.1.0";
+  version = "0-unstable-2026-10-08";
   src = pkgs.fetchFromGitHub {
     owner = "maeve-oake";
     repo = "beesly";
-    rev = "2b4e00047b84c4160f11caf34413cf145f72ff3a";
-    hash = "sha256-tJSgbj0NUVOgck2+xnYVVrAfVzk/iW5q2PohfPPfxbI=";
+    rev = "64d22d7c4cab42dc16a6559b83db7ced0536eb9c";
+    hash = "sha256-TWYaINaEMo8v/5tHYmBjC/SB/+/xJc3TyeNZFhk8yN8=";
   };
   projectFile = "beesly.csproj";
   nugetDeps = ./deps.json;
