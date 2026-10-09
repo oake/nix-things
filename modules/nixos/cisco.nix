@@ -58,7 +58,7 @@ in
   };
   config = {
     systemd.services.cisco-config-http = lib.mkIf httpEnabled {
-      description = "Cisco 7975G configuration HTTP server";
+      description = "Cisco phone configuration HTTP server";
       wantedBy = [ "multi-user.target" ];
       after = [
         "network.target"
@@ -77,7 +77,7 @@ in
     };
 
     systemd.services.cisco-config-tftp = lib.mkIf tftpEnabled {
-      description = "Cisco 7975G configuration TFTP server";
+      description = "Cisco phone configuration TFTP server";
       wantedBy = [ "multi-user.target" ];
       after = [
         "network.target"

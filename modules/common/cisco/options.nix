@@ -18,6 +18,7 @@ let
     ;
 
   cfg = config.services.cisco;
+  models = import ./models.nix;
 
   # Keep the Cisco-specific renderer explicit, but use nixpkgs' XML escaping so
   # values cannot inject elements or attributes.
@@ -193,11 +194,11 @@ let
     options = {
       button = mkOption {
         type = types.ints.positive;
-        description = "Button number: 1-8 on the base phone, 9-32 on the first 24-key expansion module, and 33-56 on the second. Both expansion-module pages are configured here.";
+        description = "Button number on the base phone or expansion modules. Base-phone capacity depends on deviceModel; expansion-module buttons follow the base buttons. Both expansion-module pages are configured here.";
       };
       kind = mkOption {
         type = types.enum buttonKinds;
-        description = "7975G-supported button function. The firmware featureID is derived from this value.";
+        description = "Supported Cisco phone button function. The firmware featureID is derived from this value.";
       };
       label = stringOption "" "Label shown beside the button.";
       lineIndex = nullableIntOption "Logical line index, required for line and intercom buttons.";
@@ -246,12 +247,12 @@ let
       ringWhenIdle = mkOption {
         type = types.ints.between 0 5;
         default = 4;
-        description = "CUCM 7975G ring-setting enum while idle; 4 is the usual system/default policy.";
+        description = "CUCM ring-setting enum while idle; 4 is the usual system/default policy.";
       };
       ringWhenActive = mkOption {
         type = types.ints.between 0 5;
         default = 5;
-        description = "CUCM 7975G ring-setting enum while another call is active.";
+        description = "CUCM ring-setting enum while another call is active.";
       };
       forwardCallInfoDisplay = mkOption {
         type = forwardDisplayType;
@@ -592,433 +593,450 @@ let
     };
   });
 
-  deviceType = types.submodule (_: {
-    options = {
-      ip = mkOption {
-        type = types.nullOr (
-          types.strMatching "(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])([.](25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}"
-        );
-        example = "10.0.4.84";
-        description = "Reserved phone IPv4 address used for server access control; this does not change the phone's network configuration.";
-      };
-      macAddress = mkOption {
-        type = types.str;
-        description = ''
-          Twelve uppercase hexadecimal digits used as the SEP<MAC>.cnf.xml
-          filename. May be a runtime secret placeholder (`$NAME` or `''${NAME}`).
-        '';
-        example = "002584A38153";
-      };
-      ipAddressMode = mkOption {
-        type = types.enum [
-          "ipv4"
-          "ipv6"
-          "dual-stack"
-        ];
-        default = "ipv4";
-        description = "Phone address-family mode.";
-      };
-      allowAutoConfig = boolOption true "Allow automatic network configuration.";
-      duplicateAddressDetection = boolOption true "Enable IPv6 duplicate-address detection.";
-      acceptIcmpRedirects = boolOption false "Accept/use ICMP redirects.";
-      respondToMulticastEcho = boolOption false "Respond to multicast ICMP echo.";
-
-      dateTime = {
-        dateTemplate = mkOption {
-          type = types.enum [
-            "D/M/Y"
-            "D-M-YY"
-            "M/D/YA"
-            "M/D/Y"
-            "Y-M-D"
-          ];
-          default = "D-M-YY";
-          description = "7975G date display template.";
+  deviceType = types.submodule (
+    { config, ... }: {
+      options = {
+        deviceModel = mkOption {
+          type = types.enum (builtins.attrNames models);
+          default = "7975G";
+          description = "Cisco phone model, used to select default firmware, button capacity, and wallpaper layout.";
         };
-        timeZone = stringOption "W. Europe Standard/Daylight Time" "Cisco time-zone label, not an IANA identifier.";
-        ntpServers = mkOption {
-          type = types.listOf ntpType;
-          default = [ { name = "191.96.11.19"; } ];
-          description = "NTP servers.";
-        };
-      };
-      callManagers = mkOption {
-        type = types.nonEmptyListOf callManagerType;
-        description = "Ordered SIP registrars; the first entry is primary and the rest are failover backups.";
-      };
-      connectionMonitorDuration = nullableIntOption "CUCM/SRST connection-monitor interval in seconds.";
-      srst = mkOption {
-        type = srstType;
-        default = { };
-        description = "Optional CUCM SRST data.";
-      };
-
-      sip = {
-        registerWithProxy = boolOption true "Register SIP lines with the selected proxy.";
-        callFeatures = {
-          conferenceJoin = boolOption true "Enable conference/select/join UI.";
-          callForwardURI = stringOption "x-cisco-serviceuri-cfwdall" "Forward-all service URI.";
-          callPickupURI = stringOption "x-cisco-serviceuri-pickup" "Pickup service URI.";
-          otherPickupURI = stringOption "x-cisco-serviceuri-opickup" "Other-group pickup service URI.";
-          groupPickupURI = stringOption "x-cisco-serviceuri-gpickup" "Group pickup service URI.";
-          meetMeURI = stringOption "x-cisco-serviceuri-meetme" "Meet-Me service URI.";
-          abbreviatedDialURI = stringOption "x-cisco-serviceuri-abbrdial" "Abbreviated-dial service URI.";
-          holdStyle = nullableEnumOption [
-            "rfc3264"
-            "rfc2543"
-          ] "SIP hold signaling style.";
-          callHoldRingback = nullableBoolOption "Enable hold ringback/reminder behavior.";
-          localCallForward = nullableBoolOption "Enable local Forward All UI.";
-          semiAttendedTransfer = nullableBoolOption "Allow transfer completion while the target rings.";
-          anonymousCallBlock = nullableBoolOption "Enable local anonymous-call blocking.";
-          callerIdBlocking = nullableBoolOption "Enable caller-ID blocking UI.";
-          dndControl = nullableEnumOption [
-            "disabled"
-            "reject"
-            "ringer-off"
-          ] "Do Not Disturb policy.";
-          remoteCallControl = boolOption true "Enable Cisco remote call-control signaling.";
-          retainForwardInformation = boolOption true "Retain forwarding information from call control.";
-          uriDisplay = nullableEnumOption [
-            "uri"
-            "number-first"
-          ] "SIP URI display preference.";
-        };
-        stack = {
-          inviteRetransmissions = intOption 6 "Maximum INVITE retransmissions.";
-          nonInviteRetransmissions = intOption 10 "Maximum non-INVITE retransmissions.";
-          inviteExpires = intOption 180 "INVITE expiry in seconds.";
-          registerExpires = intOption 3600 "Requested registration lifetime in seconds.";
-          registerDelta = intOption 5 "Seconds before expiry at which registration renews.";
-          keepAliveExpires = intOption 120 "Keepalive interval/expiry in seconds.";
-          subscribeExpires = intOption 120 "Requested subscription lifetime in seconds.";
-          subscribeDelta = intOption 5 "Seconds before expiry at which subscriptions renew.";
-          t1 = intOption 500 "RFC 3261 T1 in milliseconds.";
-          t2 = intOption 4000 "RFC 3261 T2 in milliseconds.";
-          maxRedirects = intOption 70 "Maximum followed SIP redirects.";
-          remotePartyId = boolOption true "Enable legacy Remote-Party-ID handling.";
-          numericUserInfo = boolOption true "Append/treat numeric SIP identities as user=phone.";
-        };
-        autoAnswerTimer = nullableIntOption "Auto-answer delay in seconds.";
-        autoAnswerAlternateBehavior = nullableBoolOption "Use alternate auto-answer behavior.";
-        autoAnswerOverride = nullableBoolOption "Allow line auto-answer to override profile behavior.";
-        transferOnHook = nullableBoolOption "Complete transfer by replacing the handset.";
-        voiceActivityDetection = nullableBoolOption "Enable VAD/silence suppression.";
-        preferredCodec = nullableEnumOption [
-          "none"
-          "g711ulaw"
-          "g711alaw"
-          "g722"
-          "g729a"
-        ] "Preferred audio codec.";
-        dtmf = mkOption {
-          type = types.nullOr (
-            types.submodule (_: {
-              options = {
-                payload = mkOption {
-                  type = types.ints.between 96 127;
-                  default = 101;
-                  description = "RTP telephone-event payload type.";
-                };
-                dbLevel = mkOption {
-                  type = types.ints.between 0 3;
-                  default = 3;
-                  description = "Telephone-event volume field.";
-                };
-                transport = mkOption {
-                  type = types.enum [ "avt" ];
-                  default = "avt";
-                  description = "Verified RTP-event transport.";
-                };
-              };
-            })
-          );
-          default = null;
-          description = "RTP telephone-event settings. Omit to use the phone firmware defaults.";
-        };
-        alwaysUsePrimeLine = nullableBoolOption "Select the primary line on off-hook.";
-        alwaysUsePrimeLineForVoiceMail = nullableBoolOption "Use the primary line for the Messages key.";
-        kpml = boolOption false "Enable Key Press Markup Language digit reporting.";
-        phoneLabel = stringOption "" "Idle-screen phone label.";
-        stutterMessageWaiting = nullableBoolOption "Enable stutter dial tone for MWI.";
-        callStats = nullableBoolOption "Enable RTP/QRT call statistics.";
-        offHookToFirstDigitTimer = nullableIntOption "First-digit timeout in milliseconds.";
-        callWaitingBurstSilence = nullableIntOption "Seconds between call-waiting tone bursts.";
-        disableLocalSpeedDialConfig = nullableBoolOption "Prevent local speed-dial editing.";
-        mediaPorts = mkOption {
-          type = types.nullOr (
-            types.submodule (_: {
-              options = {
-                first = portOption 16384 "First RTP UDP port.";
-                last = portOption 32766 "Last RTP UDP port.";
-              };
-            })
-          );
-          default = null;
-          description = "RTP UDP port range. Omit to use the phone firmware defaults.";
-        };
-        nat = {
-          enabled = boolOption false "Enable static phone-side NAT handling.";
-          receivedProcessing = boolOption false "Use received/rport NAT processing.";
-          address = nullableStringOption "Static public address; required only when NAT is enabled.";
-        };
-        buttons = mkOption {
-          type = types.nonEmptyListOf buttonType;
-          description = "SIP lines and supported programmable-button assignments.";
-        };
-        externalNumberMask = nullableStringOption "Optional presentation mask.";
-        localPort = portOption 5060 "Local SIP signaling port.";
-        dscpForAudio = mkOption {
-          type = types.nullOr (types.ints.between 0 255);
-          default = null;
-          description = "Full IPv4 DS/TOS byte; 184 represents DSCP EF. Omit for the phone default.";
-        };
-        busyStationRingPolicy = nullableEnumOption [ "system" ] "Verified external-PBX encoding 0.";
-        dialPlan = mkOption {
-          type = types.nullOr dialPlanType;
-          default = null;
-          description = "Dial plan rendered to a separate, automatically referenced XML file.";
-        };
-        softKeys = mkOption {
-          type = types.nullOr softKeysType;
-          default = null;
+        firmware = mkOption {
+          type = types.package;
+          default = pkgs.${models.${config.deviceModel}.firmwarePackage};
+          defaultText = "The firmware package selected by deviceModel";
           description = ''
-            Softkey layout rendered to a separate, automatically referenced XML file.
-            Keys are the Cisco call state; values are the softkeys shown in that state,
-            in display order.
+            Firmware package to serve for this device. Its files must be at the
+            package root, and its `loadInformation` attribute must contain the
+            Cisco load ID. Defaults to the package matching deviceModel.
           '';
         };
-      };
+        ip = mkOption {
+          type = types.nullOr (
+            types.strMatching "(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])([.](25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}"
+          );
+          example = "10.0.4.84";
+          description = "Reserved phone IPv4 address used for server access control; this does not change the phone's network configuration.";
+        };
+        macAddress = mkOption {
+          type = types.str;
+          description = ''
+            Twelve uppercase hexadecimal digits used as the SEP<MAC>.cnf.xml
+            filename. May be a runtime secret placeholder (`$NAME` or `''${NAME}`).
+          '';
+          example = "002584A38153";
+        };
+        ipAddressMode = mkOption {
+          type = types.enum [
+            "ipv4"
+            "ipv6"
+            "dual-stack"
+          ];
+          default = "ipv4";
+          description = "Phone address-family mode.";
+        };
+        allowAutoConfig = boolOption true "Allow automatic network configuration.";
+        duplicateAddressDetection = boolOption true "Enable IPv6 duplicate-address detection.";
+        acceptIcmpRedirects = boolOption false "Accept/use ICMP redirects.";
+        respondToMulticastEcho = boolOption false "Respond to multicast ICMP echo.";
 
-      missedCallLogging = nullableBoolOption "Enable or disable missed-call logging.";
-      commonProfile = {
-        phonePassword = stringOption "" "Password used to unlock protected phone settings.";
-        callLogBlf = nullableEnumOption [
-          "disabled"
-          "enabled"
-          "call-lists"
-          "directories-and-call-lists"
-        ] "BLF state display scope in call logs/directories.";
-      };
+        dateTime = {
+          dateTemplate = mkOption {
+            type = types.enum [
+              "D/M/Y"
+              "D-M-YY"
+              "M/D/YA"
+              "M/D/Y"
+              "Y-M-D"
+            ];
+            default = "D-M-YY";
+            description = "Phone date display template.";
+          };
+          timeZone = stringOption "W. Europe Standard/Daylight Time" "Cisco time-zone label, not an IANA identifier.";
+          ntpServers = mkOption {
+            type = types.listOf ntpType;
+            default = [ { name = "191.96.11.19"; } ];
+            description = "NTP servers.";
+          };
+        };
+        callManagers = mkOption {
+          type = types.nonEmptyListOf callManagerType;
+          description = "Ordered SIP registrars; the first entry is primary and the rest are failover backups.";
+        };
+        connectionMonitorDuration = nullableIntOption "CUCM/SRST connection-monitor interval in seconds.";
+        srst = mkOption {
+          type = srstType;
+          default = { };
+          description = "Optional CUCM SRST data.";
+        };
 
-      wallpaperFile = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-        description = ''
-          A 320x216 PNG image forced as this phone's wallpaper. The module
-          generates the thumbnail and Cisco image-list XML automatically.
-        '';
-      };
-      vendor = {
-        disableSpeaker = boolOption false "Disable speakerphone.";
-        disableSpeakerAndHeadset = boolOption false "Disable both speakerphone and headset.";
-        pcPort = nullableBoolOption "Enable the rear PC Ethernet port.";
-        settingsAccess = nullableEnumOption [
-          "disabled"
-          "enabled"
-          "restricted"
-        ] "Access to Settings menus.";
-        gratuitousArp = nullableBoolOption "Enable Gratuitous ARP learning behavior.";
-        voiceVlanAccess = nullableBoolOption "Permit the PC-port device on the voice VLAN.";
-        spanToPcPort = nullableBoolOption "Mirror phone traffic to the PC port.";
-        loggingDisplay = nullableBoolOption "Enable TAC diagnostic logging display.";
-        electronicHookswitch = nullableBoolOption "Enable wireless-headset EHS control.";
-        autoSelectLine = nullableBoolOption "Move focus to incoming calls on other lines.";
-        rtcp = nullableBoolOption "Enable RTCP, including during SIP hold.";
-        dontFragment = nullableBoolOption "Set the IPv4 Don't Fragment bit.";
-        webAccess = boolOption true "Enable phone status web pages.";
-        webProtocol = mkOption {
-          type = types.enum [
-            "http-and-https"
-            "https-only"
-          ];
-          default = "http-and-https";
-          description = "Phone status web-server protocol.";
+        sip = {
+          registerWithProxy = boolOption true "Register SIP lines with the selected proxy.";
+          callFeatures = {
+            conferenceJoin = boolOption true "Enable conference/select/join UI.";
+            callForwardURI = stringOption "x-cisco-serviceuri-cfwdall" "Forward-all service URI.";
+            callPickupURI = stringOption "x-cisco-serviceuri-pickup" "Pickup service URI.";
+            otherPickupURI = stringOption "x-cisco-serviceuri-opickup" "Other-group pickup service URI.";
+            groupPickupURI = stringOption "x-cisco-serviceuri-gpickup" "Group pickup service URI.";
+            meetMeURI = stringOption "x-cisco-serviceuri-meetme" "Meet-Me service URI.";
+            abbreviatedDialURI = stringOption "x-cisco-serviceuri-abbrdial" "Abbreviated-dial service URI.";
+            holdStyle = nullableEnumOption [
+              "rfc3264"
+              "rfc2543"
+            ] "SIP hold signaling style.";
+            callHoldRingback = nullableBoolOption "Enable hold ringback/reminder behavior.";
+            localCallForward = nullableBoolOption "Enable local Forward All UI.";
+            semiAttendedTransfer = nullableBoolOption "Allow transfer completion while the target rings.";
+            anonymousCallBlock = nullableBoolOption "Enable local anonymous-call blocking.";
+            callerIdBlocking = nullableBoolOption "Enable caller-ID blocking UI.";
+            dndControl = nullableEnumOption [
+              "disabled"
+              "reject"
+              "ringer-off"
+            ] "Do Not Disturb policy.";
+            remoteCallControl = boolOption true "Enable Cisco remote call-control signaling.";
+            retainForwardInformation = boolOption true "Retain forwarding information from call control.";
+            uriDisplay = nullableEnumOption [
+              "uri"
+              "number-first"
+            ] "SIP URI display preference.";
+          };
+          stack = {
+            inviteRetransmissions = intOption 6 "Maximum INVITE retransmissions.";
+            nonInviteRetransmissions = intOption 10 "Maximum non-INVITE retransmissions.";
+            inviteExpires = intOption 180 "INVITE expiry in seconds.";
+            registerExpires = intOption 3600 "Requested registration lifetime in seconds.";
+            registerDelta = intOption 5 "Seconds before expiry at which registration renews.";
+            keepAliveExpires = intOption 120 "Keepalive interval/expiry in seconds.";
+            subscribeExpires = intOption 120 "Requested subscription lifetime in seconds.";
+            subscribeDelta = intOption 5 "Seconds before expiry at which subscriptions renew.";
+            t1 = intOption 500 "RFC 3261 T1 in milliseconds.";
+            t2 = intOption 4000 "RFC 3261 T2 in milliseconds.";
+            maxRedirects = intOption 70 "Maximum followed SIP redirects.";
+            remotePartyId = boolOption true "Enable legacy Remote-Party-ID handling.";
+            numericUserInfo = boolOption true "Append/treat numeric SIP identities as user=phone.";
+          };
+          autoAnswerTimer = nullableIntOption "Auto-answer delay in seconds.";
+          autoAnswerAlternateBehavior = nullableBoolOption "Use alternate auto-answer behavior.";
+          autoAnswerOverride = nullableBoolOption "Allow line auto-answer to override profile behavior.";
+          transferOnHook = nullableBoolOption "Complete transfer by replacing the handset.";
+          voiceActivityDetection = nullableBoolOption "Enable VAD/silence suppression.";
+          preferredCodec = nullableEnumOption [
+            "none"
+            "g711ulaw"
+            "g711alaw"
+            "g722"
+            "g729a"
+          ] "Preferred audio codec.";
+          dtmf = mkOption {
+            type = types.nullOr (
+              types.submodule (_: {
+                options = {
+                  payload = mkOption {
+                    type = types.ints.between 96 127;
+                    default = 101;
+                    description = "RTP telephone-event payload type.";
+                  };
+                  dbLevel = mkOption {
+                    type = types.ints.between 0 3;
+                    default = 3;
+                    description = "Telephone-event volume field.";
+                  };
+                  transport = mkOption {
+                    type = types.enum [ "avt" ];
+                    default = "avt";
+                    description = "Verified RTP-event transport.";
+                  };
+                };
+              })
+            );
+            default = null;
+            description = "RTP telephone-event settings. Omit to use the phone firmware defaults.";
+          };
+          alwaysUsePrimeLine = nullableBoolOption "Select the primary line on off-hook.";
+          alwaysUsePrimeLineForVoiceMail = nullableBoolOption "Use the primary line for the Messages key.";
+          kpml = boolOption false "Enable Key Press Markup Language digit reporting.";
+          phoneLabel = stringOption "" "Idle-screen phone label.";
+          stutterMessageWaiting = nullableBoolOption "Enable stutter dial tone for MWI.";
+          callStats = nullableBoolOption "Enable RTP/QRT call statistics.";
+          offHookToFirstDigitTimer = nullableIntOption "First-digit timeout in milliseconds.";
+          callWaitingBurstSilence = nullableIntOption "Seconds between call-waiting tone bursts.";
+          disableLocalSpeedDialConfig = nullableBoolOption "Prevent local speed-dial editing.";
+          mediaPorts = mkOption {
+            type = types.nullOr (
+              types.submodule (_: {
+                options = {
+                  first = portOption 16384 "First RTP UDP port.";
+                  last = portOption 32766 "Last RTP UDP port.";
+                };
+              })
+            );
+            default = null;
+            description = "RTP UDP port range. Omit to use the phone firmware defaults.";
+          };
+          nat = {
+            enabled = boolOption false "Enable static phone-side NAT handling.";
+            receivedProcessing = boolOption false "Use received/rport NAT processing.";
+            address = nullableStringOption "Static public address; required only when NAT is enabled.";
+          };
+          buttons = mkOption {
+            type = types.nonEmptyListOf buttonType;
+            description = "SIP lines and supported programmable-button assignments.";
+          };
+          externalNumberMask = nullableStringOption "Optional presentation mask.";
+          localPort = portOption 5060 "Local SIP signaling port.";
+          dscpForAudio = mkOption {
+            type = types.nullOr (types.ints.between 0 255);
+            default = null;
+            description = "Full IPv4 DS/TOS byte; 184 represents DSCP EF. Omit for the phone default.";
+          };
+          busyStationRingPolicy = nullableEnumOption [ "system" ] "Verified external-PBX encoding 0.";
+          dialPlan = mkOption {
+            type = types.nullOr dialPlanType;
+            default = null;
+            description = "Dial plan rendered to a separate, automatically referenced XML file.";
+          };
+          softKeys = mkOption {
+            type = types.nullOr softKeysType;
+            default = null;
+            description = ''
+              Softkey layout rendered to a separate, automatically referenced XML file.
+              Keys are the Cisco call state; values are the softkeys shown in that state,
+              in display order.
+            '';
+          };
         };
-        sshAccess = boolOption false "Enable the phone SSH server.";
-        loadServer = nullableStringOption "Alternate server for firmware load files.";
-        peerFirmwareSharing = nullableBoolOption "Allow peer firmware sharing.";
-        cdpSwitchPort = nullableBoolOption "Enable CDP on the switch port.";
-        cdpPcPort = nullableBoolOption "Enable CDP on the PC port.";
-        lldpSwitchPort = nullableBoolOption "Enable LLDP-MED on the switch port.";
-        lldpPcPort = nullableBoolOption "Enable LLDP on the PC port.";
-        powerNegotiation = nullableBoolOption "Enable CDP/LLDP power negotiation.";
-        g722 = mkOption {
-          type = types.enum [
+
+        missedCallLogging = nullableBoolOption "Enable or disable missed-call logging.";
+        commonProfile = {
+          phonePassword = stringOption "" "Password used to unlock protected phone settings.";
+          callLogBlf = nullableEnumOption [
             "disabled"
-            "system"
             "enabled"
-          ];
-          default = "enabled";
-          description = "G.722 codec capability policy.";
+            "call-lists"
+            "directories-and-call-lists"
+          ] "BLF state display scope in call logs/directories.";
         };
-        handsetWideband = mkOption {
-          type = types.enum [
+
+        wallpaperFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = ''
+            A PNG image matching deviceModel's wallpaper dimensions, forced as this phone's wallpaper. The module
+            generates the thumbnail and Cisco image-list XML automatically.
+          '';
+        };
+        vendor = {
+          disableSpeaker = boolOption false "Disable speakerphone.";
+          disableSpeakerAndHeadset = boolOption false "Disable both speakerphone and headset.";
+          pcPort = nullableBoolOption "Enable the rear PC Ethernet port.";
+          settingsAccess = nullableEnumOption [
             "disabled"
             "enabled"
-            "user-controlled"
-          ];
-          default = "enabled";
-          description = "Handset wideband mode.";
+            "restricted"
+          ] "Access to Settings menus.";
+          gratuitousArp = nullableBoolOption "Enable Gratuitous ARP learning behavior.";
+          voiceVlanAccess = nullableBoolOption "Permit the PC-port device on the voice VLAN.";
+          spanToPcPort = nullableBoolOption "Mirror phone traffic to the PC port.";
+          loggingDisplay = nullableBoolOption "Enable TAC diagnostic logging display.";
+          electronicHookswitch = nullableBoolOption "Enable wireless-headset EHS control.";
+          autoSelectLine = nullableBoolOption "Move focus to incoming calls on other lines.";
+          rtcp = nullableBoolOption "Enable RTCP, including during SIP hold.";
+          dontFragment = nullableBoolOption "Set the IPv4 Don't Fragment bit.";
+          webAccess = boolOption true "Enable phone status web pages.";
+          webProtocol = mkOption {
+            type = types.enum [
+              "http-and-https"
+              "https-only"
+            ];
+            default = "http-and-https";
+            description = "Phone status web-server protocol.";
+          };
+          sshAccess = boolOption false "Enable the phone SSH server.";
+          loadServer = nullableStringOption "Alternate server for firmware load files.";
+          peerFirmwareSharing = nullableBoolOption "Allow peer firmware sharing.";
+          cdpSwitchPort = nullableBoolOption "Enable CDP on the switch port.";
+          cdpPcPort = nullableBoolOption "Enable CDP on the PC port.";
+          lldpSwitchPort = nullableBoolOption "Enable LLDP-MED on the switch port.";
+          lldpPcPort = nullableBoolOption "Enable LLDP on the PC port.";
+          powerNegotiation = nullableBoolOption "Enable CDP/LLDP power negotiation.";
+          g722 = mkOption {
+            type = types.enum [
+              "disabled"
+              "system"
+              "enabled"
+            ];
+            default = "enabled";
+            description = "G.722 codec capability policy.";
+          };
+          handsetWideband = mkOption {
+            type = types.enum [
+              "disabled"
+              "enabled"
+              "user-controlled"
+            ];
+            default = "enabled";
+            description = "Handset wideband mode.";
+          };
+          headsetWideband = mkOption {
+            type = types.enum [
+              "disabled"
+              "enabled"
+              "user-controlled"
+            ];
+            default = "enabled";
+            description = "Headset wideband mode.";
+          };
+          handsetWidebandUiControl = boolOption true "Allow user control of handset wideband mode.";
+          headsetWidebandUiControl = boolOption true "Allow user control of headset wideband mode.";
+          minimumRingVolume = mkOption {
+            type = types.nullOr (types.ints.between 0 15);
+            default = null;
+            description = "Enforced minimum ringer volume.";
+          };
+          recordingTone = nullableBoolOption "Enable periodic recording notification tone.";
+          recordingToneLocalVolume = mkOption {
+            type = types.nullOr (types.ints.between 0 100);
+            default = null;
+            description = "Local recording-tone volume.";
+          };
+          recordingToneRemoteVolume = mkOption {
+            type = types.nullOr (types.ints.between 0 100);
+            default = null;
+            description = "Remote recording-tone volume.";
+          };
+          recordingToneDuration = nullableIntOption "Recording-tone duration in milliseconds.";
+          moreKeyReversionTimer = nullableIntOption "Seconds before the softkey page returns from More.";
+          display = mkOption {
+            type = types.nullOr (
+              types.submodule (_: {
+                options = {
+                  inactiveDays = mkOption {
+                    type = types.listOf (types.ints.between 1 7);
+                    default = [
+                      1
+                      7
+                    ];
+                    description = "Sunday=1 through Saturday=7.";
+                  };
+                  onTime = stringOption "08:00" "Scheduled display-on time (HH:MM).";
+                  onDuration = stringOption "12:00" "Scheduled display-on duration (HH:MM).";
+                  idleTimeout = stringOption "00:10" "Display idle timeout (HH:MM).";
+                  onForIncomingCall = boolOption true "Turn the display on for incoming calls.";
+                };
+              })
+            );
+            default = null;
+            description = "Display power-save schedule. Omit to use the phone firmware defaults.";
+          };
         };
-        headsetWideband = mkOption {
-          type = types.enum [
-            "disabled"
-            "enabled"
-            "user-controlled"
-          ];
-          default = "enabled";
-          description = "Headset wideband mode.";
+
+        inactiveLoadInformation = nullableStringOption "Inactive/alternate firmware load ID.";
+        addOnModules = mkOption {
+          type = types.listOf addOnModuleType;
+          default = [ ];
+          description = "Attached Cisco 7915/7916 expansion modules.";
         };
-        handsetWidebandUiControl = boolOption true "Allow user control of handset wideband mode.";
-        headsetWidebandUiControl = boolOption true "Allow user control of headset wideband mode.";
-        minimumRingVolume = mkOption {
-          type = types.nullOr (types.ints.between 0 15);
-          default = null;
-          description = "Enforced minimum ringer volume.";
+        phoneServices = {
+          useHTTPS = boolOption false "Use HTTPS for phone-service retrieval.";
+          services = mkOption {
+            type = types.listOf phoneServiceType;
+            default = [ ];
+            description = "Built-in or XML phone services.";
+          };
         };
-        recordingTone = nullableBoolOption "Enable periodic recording notification tone.";
-        recordingToneLocalVolume = mkOption {
-          type = types.nullOr (types.ints.between 0 100);
-          default = null;
-          description = "Local recording-tone volume.";
-        };
-        recordingToneRemoteVolume = mkOption {
-          type = types.nullOr (types.ints.between 0 100);
-          default = null;
-          description = "Remote recording-tone volume.";
-        };
-        recordingToneDuration = nullableIntOption "Recording-tone duration in milliseconds.";
-        moreKeyReversionTimer = nullableIntOption "Seconds before the softkey page returns from More.";
-        display = mkOption {
+        userLocale = mkOption {
           type = types.nullOr (
             types.submodule (_: {
               options = {
-                inactiveDays = mkOption {
-                  type = types.listOf (types.ints.between 1 7);
-                  default = [
-                    1
-                    7
-                  ];
-                  description = "Sunday=1 through Saturday=7.";
-                };
-                onTime = stringOption "08:00" "Scheduled display-on time (HH:MM).";
-                onDuration = stringOption "12:00" "Scheduled display-on duration (HH:MM).";
-                idleTimeout = stringOption "00:10" "Display idle timeout (HH:MM).";
-                onForIncomingCall = boolOption true "Turn the display on for incoming calls.";
+                name = stringOption "English_United_States" "Installed Cisco user-locale identifier.";
+                uid = intOption 1 "Cisco locale UID.";
+                languageCode = stringOption "en_US" "Locale language code.";
+                version = stringOption "1.0.0.0-1" "Installed locale version.";
+                windowsCharset = stringOption "utf-8" "Locale character-set identifier.";
               };
             })
           );
           default = null;
-          description = "Display power-save schedule. Omit to use the phone firmware defaults.";
+          description = ''
+            User locale. When set, the phone fetches English_United_States/td-sip.jar
+            (or the matching locale JAR) from this server. Omit to keep the locale
+            already in the phone's flash.
+          '';
+        };
+        networkLocale = mkOption {
+          type = types.nullOr (
+            types.submodule (_: {
+              options = {
+                name = stringOption "United_States" "Installed Cisco network-locale identifier.";
+                version = stringOption "1.0.0.0-1" "Installed network-locale version.";
+              };
+            })
+          );
+          default = null;
+          description = ''
+            Network locale (tone plan). When set, the phone fetches
+            United_States/g3-tones.xml from this server. Omit to keep the
+            locale already in the phone's flash.
+          '';
+        };
+        urls = {
+          authentication = nullableStringOption "Authentication URL for pushed phone commands.";
+          messages = nullableStringOption "Messages XML-service URL.";
+          services = nullableStringOption "Services XML-service URL.";
+          directory = nullableStringOption "Directories XML-service URL.";
+          idle = nullableStringOption "Idle XML-service URL.";
+          information = nullableStringOption "Information XML-service URL.";
+          proxy = nullableStringOption "HTTP proxy URL used for XML services.";
+          secureAuthentication = nullableStringOption "Secure authentication URL.";
+          secureMessages = nullableStringOption "Secure messages URL.";
+          secureServices = nullableStringOption "Secure services URL.";
+          secureDirectory = nullableStringOption "Secure directory URL.";
+          secureIdle = nullableStringOption "Secure idle URL.";
+          secureInformation = nullableStringOption "Secure information URL.";
+        };
+        idleTimeout = nullableIntOption "Seconds before the idle XML service is opened; 0 disables.";
+        transport = mkOption {
+          type = types.enum [
+            "udp"
+            "tcp"
+            "tls"
+          ];
+          default = "udp";
+          description = "SIP transport.";
+        };
+        tlsResumptionTimer = nullableIntOption "TLS session-resumption lifetime in seconds.";
+        phonePersonalization = nullableBoolOption "Enable phone personalization controls.";
+        autoCallPickup = nullableBoolOption "Enable automatic call pickup.";
+        blfAudibleAlertWhenIdle = nullableBoolOption "Enable a BLF audible alert while the monitored station is idle.";
+        blfAudibleAlertWhenBusy = nullableBoolOption "Enable a BLF audible alert while the monitored station is busy.";
+        dndCallAlert = mkOption {
+          type = types.nullOr (
+            types.enum [
+              "disabled"
+              "beep"
+              "flash"
+            ]
+          );
+          default = null;
+          description = "DND call-alert policy.";
+        };
+        dndReminderTimer = nullableIntOption "DND reminder interval in minutes.";
+        advertiseG722 = boolOption true "Advertise G.722 in SIP SDP.";
+        rollover = nullableBoolOption "Enable call rollover behavior across lines.";
+        joinAcrossLines = nullableBoolOption "Allow Join across different line appearances.";
+        deviceSecurityMode = nullableEnumOption [
+          "non-secure"
+          "authenticated"
+          "encrypted"
+        ] "CUCM device security mode. Omit to leave the phone default.";
+        ssh = {
+          user = nullableStringOption "SSH user ID; set only when SSH is enabled.";
+          password = nullableStringOption "SSH password; plaintext has the same Nix-store warning as authPassword.";
         };
       };
-
-      inactiveLoadInformation = nullableStringOption "Inactive/alternate firmware load ID.";
-      addOnModules = mkOption {
-        type = types.listOf addOnModuleType;
-        default = [ ];
-        description = "Attached Cisco 7915/7916 expansion modules.";
-      };
-      phoneServices = {
-        useHTTPS = boolOption false "Use HTTPS for phone-service retrieval.";
-        services = mkOption {
-          type = types.listOf phoneServiceType;
-          default = [ ];
-          description = "Built-in or XML phone services.";
-        };
-      };
-      userLocale = mkOption {
-        type = types.nullOr (
-          types.submodule (_: {
-            options = {
-              name = stringOption "English_United_States" "Installed Cisco user-locale identifier.";
-              uid = intOption 1 "Cisco locale UID.";
-              languageCode = stringOption "en_US" "Locale language code.";
-              version = stringOption "1.0.0.0-1" "Installed locale version.";
-              windowsCharset = stringOption "utf-8" "Locale character-set identifier.";
-            };
-          })
-        );
-        default = null;
-        description = ''
-          User locale. When set, the phone fetches English_United_States/td-sip.jar
-          (or the matching locale JAR) from this server. Omit to keep the locale
-          already in the phone's flash.
-        '';
-      };
-      networkLocale = mkOption {
-        type = types.nullOr (
-          types.submodule (_: {
-            options = {
-              name = stringOption "United_States" "Installed Cisco network-locale identifier.";
-              version = stringOption "1.0.0.0-1" "Installed network-locale version.";
-            };
-          })
-        );
-        default = null;
-        description = ''
-          Network locale (tone plan). When set, the phone fetches
-          United_States/g3-tones.xml from this server. Omit to keep the
-          locale already in the phone's flash.
-        '';
-      };
-      urls = {
-        authentication = nullableStringOption "Authentication URL for pushed phone commands.";
-        messages = nullableStringOption "Messages XML-service URL.";
-        services = nullableStringOption "Services XML-service URL.";
-        directory = nullableStringOption "Directories XML-service URL.";
-        idle = nullableStringOption "Idle XML-service URL.";
-        information = nullableStringOption "Information XML-service URL.";
-        proxy = nullableStringOption "HTTP proxy URL used for XML services.";
-        secureAuthentication = nullableStringOption "Secure authentication URL.";
-        secureMessages = nullableStringOption "Secure messages URL.";
-        secureServices = nullableStringOption "Secure services URL.";
-        secureDirectory = nullableStringOption "Secure directory URL.";
-        secureIdle = nullableStringOption "Secure idle URL.";
-        secureInformation = nullableStringOption "Secure information URL.";
-      };
-      idleTimeout = nullableIntOption "Seconds before the idle XML service is opened; 0 disables.";
-      transport = mkOption {
-        type = types.enum [
-          "udp"
-          "tcp"
-          "tls"
-        ];
-        default = "udp";
-        description = "SIP transport.";
-      };
-      tlsResumptionTimer = nullableIntOption "TLS session-resumption lifetime in seconds.";
-      phonePersonalization = nullableBoolOption "Enable phone personalization controls.";
-      autoCallPickup = nullableBoolOption "Enable automatic call pickup.";
-      blfAudibleAlertWhenIdle = nullableBoolOption "Enable a BLF audible alert while the monitored station is idle.";
-      blfAudibleAlertWhenBusy = nullableBoolOption "Enable a BLF audible alert while the monitored station is busy.";
-      dndCallAlert = mkOption {
-        type = types.nullOr (
-          types.enum [
-            "disabled"
-            "beep"
-            "flash"
-          ]
-        );
-        default = null;
-        description = "DND call-alert policy.";
-      };
-      dndReminderTimer = nullableIntOption "DND reminder interval in minutes.";
-      advertiseG722 = boolOption true "Advertise G.722 in SIP SDP.";
-      rollover = nullableBoolOption "Enable call rollover behavior across lines.";
-      joinAcrossLines = nullableBoolOption "Allow Join across different line appearances.";
-      deviceSecurityMode = nullableEnumOption [
-        "non-secure"
-        "authenticated"
-        "encrypted"
-      ] "CUCM device security mode. Omit to leave the phone default.";
-      ssh = {
-        user = nullableStringOption "SSH user ID; set only when SSH is enabled.";
-        password = nullableStringOption "SSH password; plaintext has the same Nix-store warning as authPassword.";
-      };
-    };
-  });
+    }
+  );
 
   renderForwardDisplay =
     value:
@@ -1206,7 +1224,7 @@ let
   contentFilename = prefix: contents: "${prefix}-${shortHash contents}.xml";
   dialPlanFilename = dialPlan: contentFilename "dialplan" (renderDialPlan dialPlan);
   softKeysFilename = softKeys: contentFilename "softkeys" (renderSoftKeys softKeys);
-  wallpaperDirectory = "Desktops/320x216x16";
+  wallpaperDirectory = model: models.${model}.wallpaperDirectory;
   wallpaperFilename = wallpaperFile: "w-${shortFileHash wallpaperFile}.png";
   wallpaperThumbnailFilename = wallpaperFile: "TN-${wallpaperFilename wallpaperFile}";
   ringtoneFilename = file: "r-${shortFileHash file}.raw";
@@ -1225,7 +1243,7 @@ let
     </CiscoIPPhoneRingList>
   '';
 
-  renderWallpaperList = wallpaperFiles: ''
+  renderWallpaperList = model: wallpaperFiles: ''
     <?xml version="1.0" encoding="utf-8"?>
     <CiscoIPPhoneImageList>
     ${lines (
@@ -1234,11 +1252,11 @@ let
         selfClosing "ImageItem" [
           {
             name = "Image";
-            value = "TFTP:${wallpaperDirectory}/${wallpaperThumbnailFilename wallpaperFile}";
+            value = "TFTP:${wallpaperDirectory model}/${wallpaperThumbnailFilename wallpaperFile}";
           }
           {
             name = "URL";
-            value = "TFTP:${wallpaperDirectory}/${wallpaperFilename wallpaperFile}";
+            value = "TFTP:${wallpaperDirectory model}/${wallpaperFilename wallpaperFile}";
           }
         ]
       ) wallpaperFiles
@@ -1523,10 +1541,16 @@ let
           ]))
         ]))
         (element "versionStamp" (configHash {
-          device = d;
-          loadInformation = cfg.firmware.loadInformation;
+          # Preserve version stamps for existing phones with the default model.
+          device =
+            lib.removeAttrs d [
+              "deviceModel"
+              "firmware"
+            ]
+            // lib.optionalAttrs (d.deviceModel != "7975G") { inherit (d) deviceModel; };
+          loadInformation = d.firmware.loadInformation;
         }))
-        (element "loadInformation" cfg.firmware.loadInformation)
+        (element "loadInformation" d.firmware.loadInformation)
         (optionalElement "inactiveLoadInformation" d.inactiveLoadInformation)
         (optionalString (d.addOnModules != [ ]) (
           block "addOnModules" (lines (map renderAddOn d.addOnModules))
@@ -1608,7 +1632,8 @@ let
     deviceName: d:
     let
       buttons = d.sip.buttons;
-      physicalLimit = 8 + lib.foldl' (acc: m: acc + m.deviceLine) 0 d.addOnModules;
+      physicalLimit =
+        models.${d.deviceModel}.buttons + lib.foldl' (acc: m: acc + m.deviceLine) 0 d.addOnModules;
       lineButtons = builtins.filter (b: b.kind == "line" || b.kind == "intercom") buttons;
       unsharedLines = builtins.filter (b: b.kind == "line" && !b.sharedLine) buttons;
       specifiedContacts = builtins.filter (b: b.contact != "") buttons;
@@ -1631,126 +1656,126 @@ let
     [
       {
         assertion = d.sip.mediaPorts == null || d.sip.mediaPorts.first < d.sip.mediaPorts.last;
-        message = "cisco7975g ${deviceName}: first RTP port must be below last RTP port";
+        message = "cisco ${deviceName}: first RTP port must be below last RTP port";
       }
       {
         assertion = d.sip.stack.registerDelta < d.sip.stack.registerExpires;
-        message = "cisco7975g ${deviceName}: registerDelta must be below registerExpires";
+        message = "cisco ${deviceName}: registerDelta must be below registerExpires";
       }
       {
         assertion = d.sip.stack.subscribeDelta < d.sip.stack.subscribeExpires;
-        message = "cisco7975g ${deviceName}: subscribeDelta must be below subscribeExpires";
+        message = "cisco ${deviceName}: subscribeDelta must be below subscribeExpires";
       }
       {
         assertion = !d.sip.nat.enabled || d.sip.nat.address != null;
-        message = "cisco7975g ${deviceName}: sip.nat.address is required when NAT is enabled";
+        message = "cisco ${deviceName}: sip.nat.address is required when NAT is enabled";
       }
       {
         assertion = d.vendor.sshAccess != true || (d.ssh.user != null && d.ssh.password != null);
-        message = "cisco7975g ${deviceName}: SSH credentials are required when SSH access is enabled";
+        message = "cisco ${deviceName}: SSH credentials are required when SSH access is enabled";
       }
       {
         assertion = builtins.length d.addOnModules <= 2;
-        message = "cisco7975g ${deviceName}: at most two expansion modules are supported";
+        message = "cisco ${deviceName}: at most two expansion modules are supported";
       }
       {
         assertion =
           lib.sort builtins.lessThan (map (m: m.index) d.addOnModules)
           == lib.range 1 (builtins.length d.addOnModules);
-        message = "cisco7975g ${deviceName}: expansion-module positions must be unique and contiguous starting at 1";
+        message = "cisco ${deviceName}: expansion-module positions must be unique and contiguous starting at 1";
       }
       {
         assertion = builtins.length d.srst.addresses <= 3;
-        message = "cisco7975g ${deviceName}: at most three SRST addresses are supported";
+        message = "cisco ${deviceName}: at most three SRST addresses are supported";
       }
       {
         assertion = !d.srst.enabled || d.srst.addresses != [ ];
-        message = "cisco7975g ${deviceName}: SRST requires at least one address";
+        message = "cisco ${deviceName}: SRST requires at least one address";
       }
       {
         assertion = d.srst.ports == [ ] || builtins.length d.srst.ports == builtins.length d.srst.addresses;
-        message = "cisco7975g ${deviceName}: SRST ports must be empty or correspond one-for-one with addresses";
+        message = "cisco ${deviceName}: SRST ports must be empty or correspond one-for-one with addresses";
       }
       {
         assertion = lib.all (b: b.button <= physicalLimit) buttons;
-        message = "cisco7975g ${deviceName}: a button exceeds the base-phone plus expansion-module capacity";
+        message = "cisco ${deviceName}: a button exceeds the base-phone plus expansion-module capacity";
       }
       {
         assertion = builtins.length (lib.unique (map (b: b.button) buttons)) == builtins.length buttons;
-        message = "cisco7975g ${deviceName}: physical button numbers must be unique";
+        message = "cisco ${deviceName}: physical button numbers must be unique";
       }
       {
         assertion = lib.all (b: b.lineIndex != null && b.lineIndex > 0) lineButtons;
-        message = "cisco7975g ${deviceName}: line/intercom buttons require a positive lineIndex";
+        message = "cisco ${deviceName}: line/intercom buttons require a positive lineIndex";
       }
       {
         assertion =
           builtins.length (lib.unique (map (b: b.lineIndex) lineButtons)) == builtins.length lineButtons;
-        message = "cisco7975g ${deviceName}: lineIndex values must be unique";
+        message = "cisco ${deviceName}: lineIndex values must be unique";
       }
       {
         assertion = lib.all (b: b.name != "") lineButtons;
-        message = "cisco7975g ${deviceName}: line/intercom buttons require a SIP name (address of record)";
+        message = "cisco ${deviceName}: line/intercom buttons require a SIP name (address of record)";
       }
       {
         assertion =
           builtins.length (lib.unique (map (b: b.name) unsharedLines)) == builtins.length unsharedLines;
-        message = "cisco7975g ${deviceName}: unshared line names must be unique; reuse a name only with sharedLine";
+        message = "cisco ${deviceName}: unshared line names must be unique; reuse a name only with sharedLine";
       }
       {
         assertion = lib.all (b: b.kind != "line" || b.authPassword == "" || b.authName != "") buttons;
-        message = "cisco7975g ${deviceName}: authName is required when authPassword is set";
+        message = "cisco ${deviceName}: authName is required when authPassword is set";
       }
       {
         assertion = lib.all (b: b.kind != "line" || b.busyTrigger <= b.maxNumCalls) buttons;
-        message = "cisco7975g ${deviceName}: busyTrigger must not exceed maxNumCalls";
+        message = "cisco ${deviceName}: busyTrigger must not exceed maxNumCalls";
       }
       {
         assertion = lib.all (b: !(needsNumber b) || b.speedDialNumber != null) buttons;
-        message = "cisco7975g ${deviceName}: speed-dial/BLF/park buttons require speedDialNumber";
+        message = "cisco ${deviceName}: speed-dial/BLF/park buttons require speedDialNumber";
       }
       {
         assertion =
           builtins.length (lib.unique (map (b: b.contact) specifiedContacts))
           == builtins.length specifiedContacts;
-        message = "cisco7975g ${deviceName}: nonempty contact values must be unique";
+        message = "cisco ${deviceName}: nonempty contact values must be unique";
       }
       {
         assertion = lib.all (
           b: b.kind != "service-url" || ((b.serviceURI != null) != (b.secureServiceURI != null))
         ) buttons;
-        message = "cisco7975g ${deviceName}: a service-url button requires exactly one of serviceURI or secureServiceURI";
+        message = "cisco ${deviceName}: a service-url button requires exactly one of serviceURI or secureServiceURI";
       }
       {
         assertion = lib.all (cm: cm.address != "") d.callManagers;
-        message = "cisco7975g ${deviceName}: every call manager requires an address";
+        message = "cisco ${deviceName}: every call manager requires an address";
       }
       {
         assertion = lib.all (template: builtins.length template.tones <= 3) dialTemplates;
-        message = "cisco7975g ${deviceName}: dial-plan templates support at most three tones";
+        message = "cisco ${deviceName}: dial-plan templates support at most three tones";
       }
       {
         assertion = d.sip.softKeys == null || softKeyStates != [ ];
-        message = "cisco7975g ${deviceName}: softKeys requires at least one call state";
+        message = "cisco ${deviceName}: softKeys requires at least one call state";
       }
       {
         assertion = lib.all (state: builtins.length d.sip.softKeys.${state} <= 16) softKeyStates;
-        message = "cisco7975g ${deviceName}: softkey sets support at most sixteen keys";
+        message = "cisco ${deviceName}: softkey sets support at most sixteen keys";
       }
       {
         assertion = requiredSoftKeyPresent "On Hook" "NewCall";
-        message = "cisco7975g ${deviceName}: the On Hook softkey set must contain NewCall";
+        message = "cisco ${deviceName}: the On Hook softkey set must contain NewCall";
       }
       {
         assertion = requiredSoftKeyPresent "Digits After First" "<<";
-        message = "cisco7975g ${deviceName}: the Digits After First softkey set must contain <<";
+        message = "cisco ${deviceName}: the Digits After First softkey set must contain <<";
       }
     ];
 
 in
 {
   options.services.cisco = {
-    enable = mkEnableOption "typed Cisco 7975G enterprise-SIP configuration generation";
+    enable = mkEnableOption "typed Cisco enterprise-SIP configuration generation";
     bindHost = mkOption {
       type = types.str;
       default = "0.0.0.0";
@@ -1785,19 +1810,10 @@ in
         Nix store root directly.
       '';
     };
-    firmware = mkOption {
-      type = types.package;
-      default = pkgs.cisco-7975g-firmware;
-      defaultText = lib.literalExpression "pkgs.cisco-7975g-firmware";
-      description = ''
-        Firmware package to serve. Its files must be placed at the package root,
-        and its `loadInformation` attribute must contain the Cisco load ID.
-      '';
-    };
     devices = mkOption {
       type = types.attrsOf deviceType;
       default = { };
-      description = "Cisco 7975G devices keyed by an arbitrary Nix name.";
+      description = "Cisco phone devices keyed by an arbitrary Nix name.";
     };
     ringtones = mkOption {
       type = types.attrsOf types.path;
@@ -1845,11 +1861,20 @@ in
     ];
     services.cisco.generatedConfigs =
       let
-        wallpaperFiles = lib.unique (
-          builtins.filter (wallpaperFile: wallpaperFile != null) (
-            mapAttrsToList (_: d: d.wallpaperFile) cfg.devices
+        wallpaperModels = lib.unique (
+          map (d: d.deviceModel) (
+            builtins.filter (d: d.wallpaperFile != null) (builtins.attrValues cfg.devices)
           )
         );
+        wallpaperFiles =
+          model:
+          lib.unique (
+            map (d: d.wallpaperFile) (
+              builtins.filter (d: d.deviceModel == model && d.wallpaperFile != null) (
+                builtins.attrValues cfg.devices
+              )
+            )
+          );
         deviceConfigs = mapAttrsToList (_: d: {
           name = "SEP${d.macAddress}.cnf.xml";
           value = renderDevice d;
@@ -1869,10 +1894,10 @@ in
               }
             ) cfg.devices
           )
-          ++ lib.optional (wallpaperFiles != [ ]) {
-            name = "${wallpaperDirectory}/List.xml";
-            value = renderWallpaperList wallpaperFiles;
-          }
+          ++ map (model: {
+            name = "${wallpaperDirectory model}/List.xml";
+            value = renderWallpaperList model (wallpaperFiles model);
+          }) wallpaperModels
           ++ lib.optionals (cfg.ringtones != { }) [
             {
               name = "Ringlist.xml";

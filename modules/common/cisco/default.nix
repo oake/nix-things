@@ -7,15 +7,18 @@
 
 let
   cfg = config.services.cisco;
+  models = import ./models.nix;
+  phoneFirmware = lib.unique (map (device: device.firmware) (builtins.attrValues cfg.devices));
   addOnFirmware = lib.unique (
     builtins.filter (firmware: firmware != null) (
       lib.concatMap (device: map (m: m.firmware) device.addOnModules) (builtins.attrValues cfg.devices)
     )
   );
-  wallpaperDirectory = "Desktops/320x216x16";
   wallpaperFiles = lib.unique (
-    builtins.filter (wallpaperFile: wallpaperFile != null) (
-      lib.mapAttrsToList (_: device: device.wallpaperFile) cfg.devices
+    builtins.filter (wallpaper: wallpaper.wallpaperFile != null) (
+      lib.mapAttrsToList (_: device: {
+        inherit (device) deviceModel wallpaperFile;
+      }) cfg.devices
     )
   );
   shortFileHash = file: builtins.substring 0 8 (builtins.hashFile "sha256" file);
@@ -35,16 +38,15 @@ in
     { services.cisco.serveBin = serveBin; }
     (lib.mkIf cfg.enable {
       services.cisco.serverRoot =
-        pkgs.runCommand "cisco-7975g-http-root"
+        pkgs.runCommand "cisco-http-root"
           {
             nativeBuildInputs = [ pkgs.imagemagick ];
           }
           ''
             mkdir -p "$out"
-            cp -R ${cfg.firmware}/. "$out/"
             ${lib.concatMapStringsSep "\n" (firmware: ''
               cp -R ${firmware}/. "$out/"
-            '') addOnFirmware}
+            '') (lib.unique (phoneFirmware ++ addOnFirmware))}
 
             ${lib.concatMapStringsSep "\n" (name: ''
               mkdir -p "$out/${builtins.dirOf name}"
@@ -55,22 +57,23 @@ in
               } "$out/"${lib.escapeShellArg name}
             '') (builtins.attrNames cfg.generatedConfigs)}
 
-            ${lib.optionalString (wallpaperFiles != [ ]) ''
-              mkdir -p "$out/${wallpaperDirectory}"
-            ''}
             ${lib.concatMapStringsSep "\n" (
-              wallpaperFile:
+              wallpaper:
               let
+                inherit (wallpaper) wallpaperFile;
+                model = models.${wallpaper.deviceModel};
+                inherit (model) wallpaperDirectory wallpaperSize;
                 filename = wallpaperFilename wallpaperFile;
               in
               ''
+                mkdir -p "$out/${wallpaperDirectory}"
                 image_info="$(magick identify -format '%m %wx%h' "${wallpaperFile}")"
-                if [ "$image_info" != "PNG 320x216" ]; then
-                  echo "Cisco 7975G wallpaper must be a 320x216 PNG; ${wallpaperFile} is $image_info" >&2
-                    exit 1
-                  fi
-                  cp "${wallpaperFile}" "$out/${wallpaperDirectory}/${filename}"
-                  magick "${wallpaperFile}" -resize '80x53!' "$out/${wallpaperDirectory}/TN-${filename}"
+                if [ "$image_info" != "PNG ${wallpaperSize}" ]; then
+                  echo "Cisco phone wallpaper must be a ${wallpaperSize} PNG; ${wallpaperFile} is $image_info" >&2
+                  exit 1
+                fi
+                cp "${wallpaperFile}" "$out/${wallpaperDirectory}/${filename}"
+                magick "${wallpaperFile}" -resize '80x53!' "$out/${wallpaperDirectory}/TN-${filename}"
               ''
             ) wallpaperFiles}
 
@@ -82,11 +85,11 @@ in
               ''
                 bytes="$(wc -c < "${file}" | tr -d ' ')"
                 if [ "$bytes" -lt 240 ] || [ "$bytes" -gt 16080 ]; then
-                  echo "Cisco 7975G ringtone must be 240-16080 bytes of µ-law PCM; ${file} is $bytes bytes" >&2
+                  echo "Cisco phone ringtone must be 240-16080 bytes of µ-law PCM; ${file} is $bytes bytes" >&2
                   exit 1
                 fi
                 if [ $((bytes % 240)) -ne 0 ]; then
-                  echo "Cisco 7975G ringtone size must be divisible by 240; ${file} is $bytes bytes" >&2
+                  echo "Cisco phone ringtone size must be divisible by 240; ${file} is $bytes bytes" >&2
                   exit 1
                 fi
                 cp "${file}" "$out/${filename}"
