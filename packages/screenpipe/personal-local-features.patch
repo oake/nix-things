@@ -1,0 +1,235 @@
+diff --git a/apps/screenpipe-app-tauri/components/workflows/workflow-access.tsx b/apps/screenpipe-app-tauri/components/workflows/workflow-access.tsx
+index d98a628..489a25c 100644
+--- a/apps/screenpipe-app-tauri/components/workflows/workflow-access.tsx
++++ b/apps/screenpipe-app-tauri/components/workflows/workflow-access.tsx
+@@ -33,11 +33,12 @@ export function WorkflowAccess({ active, requested = false, onRequestChange, onA
+   const preset = mode.startsWith("preset:") ? settings.aiPresets.find(p => p.id === mode.slice(7)) : undefined;
+   const customProvider = !!preset && ["openai", "openai-chatgpt", "anthropic", "custom", "native-ollama"].includes(preset.provider);
+   const access = workflowAccess(query.usage, mode, customProvider);
+-  const reason = query.isLoading ? "Checking workflow access…" : access.state === "ready" ? undefined : access.message;
++  const waitingForCloud = query.isLoading && !(process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD === "1" && customProvider);
++  const reason = waitingForCloud ? "Checking workflow access…" : access.state === "ready" ? undefined : access.message;
+   useEffect(() => { onAccessChange?.(reason); }, [onAccessChange, reason]);
+   useEffect(() => { if (requested && access.state === "ready") onRequestChange?.(false); }, [requested, access.state, onRequestChange]);
+   if (!active) return null;
+-  return <><WorkflowTasksPrompt active={active} backendReady={backendReady} canEnable={!query.isLoading && access.state === "ready"} onEnableUnavailable={() => onRequestChange?.(true)} />
++  return <><WorkflowTasksPrompt active={active} backendReady={backendReady} canEnable={!waitingForCloud && access.state === "ready"} onEnableUnavailable={() => onRequestChange?.(true)} />
+     <WorkflowAccessNotice open={requested} onOpenChange={onRequestChange} access={access} refreshing={query.isRefreshing} onRetry={() => void query.refresh()} onAccount={() => router.push("/settings?section=account")} onUsage={() => router.push("/settings?section=usage")} /></>;
+ }
+ 
+diff --git a/apps/screenpipe-app-tauri/lib/app-entitlement.ts b/apps/screenpipe-app-tauri/lib/app-entitlement.ts
+index 8a46fda..22e20d4 100644
+--- a/apps/screenpipe-app-tauri/lib/app-entitlement.ts
++++ b/apps/screenpipe-app-tauri/lib/app-entitlement.ts
+@@ -276,7 +276,7 @@ export function getLocalPlanPolicy(
+ export function isFreeOrUnattributedUser(
+   user: AppUser | null | undefined,
+ ): boolean {
+-  return getLocalPlanPolicy(user) !== "verified-paid";
++  return process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD !== "1" && getLocalPlanPolicy(user) !== "verified-paid";
+ }
+ 
+ export function hasFreePlanPolicy(user: AppUser | null | undefined): boolean {
+diff --git a/apps/screenpipe-app-tauri/lib/workflows/access.ts b/apps/screenpipe-app-tauri/lib/workflows/access.ts
+index fbdcf05..0ef220e 100644
+--- a/apps/screenpipe-app-tauri/lib/workflows/access.ts
++++ b/apps/screenpipe-app-tauri/lib/workflows/access.ts
+@@ -3,6 +3,7 @@
+ import type { WorkflowModelMode } from "@screenpipe/workflows-ui";
+ import type { UsageStatus } from "@/lib/hooks/use-usage-status";
+ export function workflowAccess(usage: UsageStatus | null, mode: WorkflowModelMode = "intelligent", customProvider = false) {
++  if (process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD === "1" && customProvider) return { state: "ready", message: "" } as const;
+   // The gateway reports its privileged allowance as super_admin, not a billing tier.
+   // Trust only the authenticated usage response; never infer this from local user settings.
+   const plan = usage?.hosted_ai?.plan;
+diff --git a/apps/screenpipe-app-tauri/lib/workflows/rollout.ts b/apps/screenpipe-app-tauri/lib/workflows/rollout.ts
+index 0af15d7..a21bd9f 100644
+--- a/apps/screenpipe-app-tauri/lib/workflows/rollout.ts
++++ b/apps/screenpipe-app-tauri/lib/workflows/rollout.ts
+@@ -6,7 +6,7 @@ import { localFetch } from "@/lib/api";
+ 
+ export const WORKFLOWS_FLAG = "workflows";
+ export function isWorkflowsRolloutEnabled(flag: unknown): boolean {
+-  return flag === true;
++  return process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD === "1" || flag === true;
+ }
+ export function useWorkflowsRolloutEnabled(): boolean {
+   const flag = useFeatureFlagEnabled(WORKFLOWS_FLAG);
+diff --git a/apps/screenpipe-app-tauri/src-tauri/src/activity_history.rs b/apps/screenpipe-app-tauri/src-tauri/src/activity_history.rs
+index 404201f..5999876 100644
+--- a/apps/screenpipe-app-tauri/src-tauri/src/activity_history.rs
++++ b/apps/screenpipe-app-tauri/src-tauri/src/activity_history.rs
+@@ -526,7 +526,7 @@ fn activity_history_is_restricted(app: &AppHandle) -> bool {
+ }
+ 
+ fn settings_restrict_activity_history(settings: &SettingsStore, is_enterprise_build: bool) -> bool {
+-    !is_enterprise_build && settings.is_free_or_unattributed_user()
++    !is_enterprise_build && settings.restricts_paid_local_features()
+ }
+ 
+ pub(crate) fn provider_config(
+diff --git a/apps/screenpipe-app-tauri/src-tauri/src/commands.rs b/apps/screenpipe-app-tauri/src-tauri/src/commands.rs
+index 7d29748..a84902e 100644
+--- a/apps/screenpipe-app-tauri/src-tauri/src/commands.rs
++++ b/apps/screenpipe-app-tauri/src-tauri/src/commands.rs
+@@ -1194,14 +1194,16 @@ pub async fn set_cloud_token(
+     let restrict_paid_features = settings
+         .as_ref()
+         .map(|settings| settings.restricts_paid_local_features())
+-        .unwrap_or(true);
++        .unwrap_or(!screenpipe_core::personal_local_build());
+     if let Some(settings) = settings.as_ref() {
+         crate::recording::refresh_history_access_policy(&state.history_access, settings);
+     } else {
+         // Missing/corrupt settings are unattributed on consumer builds.
+         state
+             .history_access
+-            .set_last_24_hours(!cfg!(feature = "enterprise-build"));
++            .set_last_24_hours(
++                !cfg!(feature = "enterprise-build") && !screenpipe_core::personal_local_build(),
++            );
+     }
+     let pipe_manager = {
+         let server = state.server.lock().await;
+diff --git a/apps/screenpipe-app-tauri/src-tauri/src/recording.rs b/apps/screenpipe-app-tauri/src-tauri/src/recording.rs
+index 9a40519..466f38e 100644
+--- a/apps/screenpipe-app-tauri/src-tauri/src/recording.rs
++++ b/apps/screenpipe-app-tauri/src-tauri/src/recording.rs
+@@ -174,6 +174,9 @@ fn server_access_policy(
+ }
+ 
+ pub(crate) fn server_access_allowed(app: &tauri::AppHandle, store: &SettingsStore) -> bool {
++    if screenpipe_core::personal_local_build() && !cfg!(feature = "enterprise-build") {
++        return true;
++    }
+     let startup_authentication = app
+         .try_state::<crate::startup_auth::AuthenticationStatus>()
+         .map(|status| *status)
+@@ -202,6 +205,9 @@ pub(crate) fn server_access_allowed(app: &tauri::AppHandle, store: &SettingsStor
+ /// Enterprise builds keep their native entitlement guard, and consumer builds
+ /// still reject accounts that are required to use an enterprise binary.
+ pub(crate) fn recording_access_allowed(app: &tauri::AppHandle, store: &SettingsStore) -> bool {
++    if screenpipe_core::personal_local_build() && !cfg!(feature = "enterprise-build") {
++        return true;
++    }
+     let trial_activation_paywall = !crate::should_skip_onboarding()
+         && OnboardingStore::get(app)
+             .ok()
+@@ -412,7 +418,7 @@ pub(crate) fn refresh_history_access_policy(
+ ) {
+     policy.set_last_24_hours(history_access_restricted(
+         cfg!(feature = "enterprise-build"),
+-        settings.is_free_or_unattributed_user(),
++        settings.restricts_paid_local_features(),
+     ));
+ }
+ 
+diff --git a/apps/screenpipe-app-tauri/src-tauri/src/store.rs b/apps/screenpipe-app-tauri/src-tauri/src/store.rs
+index 0390d8b..257e75e 100644
+--- a/apps/screenpipe-app-tauri/src-tauri/src/store.rs
++++ b/apps/screenpipe-app-tauri/src-tauri/src/store.rs
+@@ -2481,6 +2481,9 @@ impl SettingsStore {
+         {
+             config.port = p;
+         }
++        if screenpipe_core::personal_local_build() {
++            return config;
++        }
+         match self.local_plan_policy() {
+             LocalPlanPolicy::VerifiedFree => {
+                 config.max_non_template_pipes = Some(2);
+@@ -2597,7 +2600,7 @@ impl SettingsStore {
+     }
+ 
+     pub(crate) fn restricts_paid_local_features(&self) -> bool {
+-        self.is_free_or_unattributed_user()
++        !screenpipe_core::personal_local_build() && self.is_free_or_unattributed_user()
+     }
+ 
+     pub(crate) fn has_account_identity(&self) -> bool {
+diff --git a/crates/screenpipe-core/src/lib.rs b/crates/screenpipe-core/src/lib.rs
+index 82587f1..3ed6a3f 100644
+--- a/crates/screenpipe-core/src/lib.rs
++++ b/crates/screenpipe-core/src/lib.rs
+@@ -27,6 +27,10 @@
+ //! Execution semantics: `docs/PIPE_EXECUTION_SPEC.md` (see its freshness
+ //! header before trusting details).
+ 
++pub fn personal_local_build() -> bool {
++    option_env!("SCREENPIPE_PERSONAL_BUILD") == Some("1")
++}
++
+ pub mod agents;
+ pub use screenpipe_resource::background_work;
+ pub mod connections;
+diff --git a/crates/screenpipe-core/src/workflows/pipeline.rs b/crates/screenpipe-core/src/workflows/pipeline.rs
+index 31ff4c3..2e9c803 100644
+--- a/crates/screenpipe-core/src/workflows/pipeline.rs
++++ b/crates/screenpipe-core/src/workflows/pipeline.rs
+@@ -13,7 +13,7 @@ pub fn set_rollout_enabled(enabled: bool) {
+     ROLLOUT_ENABLED.store(enabled, std::sync::atomic::Ordering::SeqCst);
+ }
+ pub fn rollout_enabled() -> bool {
+-    ROLLOUT_ENABLED.load(std::sync::atomic::Ordering::SeqCst)
++    crate::personal_local_build() || ROLLOUT_ENABLED.load(std::sync::atomic::Ordering::SeqCst)
+ }
+ fn require_rollout(enabled: bool) -> anyhow::Result<()> {
+     if !enabled {
+@@ -207,6 +207,11 @@ pub async fn check_admission_for_provider(
+     model: &str,
+     provider: &str,
+ ) -> anyhow::Result<()> {
++    if crate::personal_local_build()
++        && matches!(provider, "openai" | "openai-chatgpt" | "anthropic" | "custom" | "native-ollama" | "ollama")
++    {
++        return Ok(());
++    }
+     require_rollout(rollout_enabled())?;
+     let token = token.filter(|s| !s.is_empty()).ok_or_else(|| {
+         anyhow::anyhow!("workflow_sign_in_required: Sign in to enable workflow updates.")
+@@ -237,6 +242,16 @@ pub async fn check_admission_for_provider(
+ 
+ #[cfg(test)]
+ mod tests {
++    #[tokio::test]
++    async fn personal_build_owned_provider_needs_no_gateway() {
++        if !crate::personal_local_build() {
++            return;
++        }
++        assert!(check_admission_for_provider("not-a-url", None, "my-model", "custom").await.is_ok());
++        assert!(check_admission_for_provider("not-a-url", None, "my-model", "screenpipe")
++            .await.unwrap_err().to_string().contains("workflow_sign_in_required"));
++    }
++
+     #[test]
+     fn rollout_is_explicit_and_fail_closed() {
+         assert!(super::require_rollout(false)
+diff --git a/apps/screenpipe-app-tauri/lib/personal-local-build.test.ts b/apps/screenpipe-app-tauri/lib/personal-local-build.test.ts
+new file mode 100644
+index 0000000..013fa6d
+--- /dev/null
++++ b/apps/screenpipe-app-tauri/lib/personal-local-build.test.ts
+@@ -0,0 +1,23 @@
++import { afterEach, expect, test } from "bun:test";
++import { isFreeOrUnattributedUser, getLocalPlanPolicy } from "./app-entitlement";
++import { workflowAccess } from "./workflows/access";
++const original = process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD;
++afterEach(() => {
++  if (original === undefined) delete process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD;
++  else process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD = original;
++});
++test("personal build unlocks history without inventing a paid account", () => {
++  process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD = "1";
++  expect(isFreeOrUnattributedUser(null)).toBe(false);
++  expect(getLocalPlanPolicy(null)).toBe("unknown");
++  delete process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD;
++  expect(isFreeOrUnattributedUser(null)).toBe(true);
++});
++test("owned workflow provider works without hosted usage or allowance", () => {
++  process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD = "1";
++  expect(workflowAccess(null, "intelligent", true).state).toBe("ready");
++  expect(workflowAccess(null, "intelligent", false).state).toBe("unavailable");
++  expect(workflowAccess(null, "private", false).state).toBe("unavailable");
++  delete process.env.NEXT_PUBLIC_SCREENPIPE_PERSONAL_BUILD;
++  expect(workflowAccess(null, "intelligent", true).state).toBe("unavailable");
++});

@@ -1,0 +1,11 @@
+--- a/PermissionFlowShim/Package.swift
++++ b/PermissionFlowShim/Package.swift
+@@ -14,7 +14,7 @@
+         ),
+     ],
+     dependencies: [
+-        .package(url: "https://github.com/brendonovich/swift-rs", from: "1.0.6"),
++        .package(path: "./swift-rs"),
+         .package(path: "../PermissionFlow")
+     ],
+     targets: [

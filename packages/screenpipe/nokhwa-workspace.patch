@@ -1,0 +1,12 @@
+diff --git a/Cargo.toml b/Cargo.toml
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -14,7 +14,7 @@ repository = "https://github.com/l1npengtul/nokhwa"
+ # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+ 
+ [workspace]
+-members = ["nokhwa-bindings-macos", "nokhwa-bindings-windows", "nokhwa-bindings-linux", "nokhwa-core", "examples/*"]
++members = ["nokhwa-bindings-macos", "nokhwa-bindings-windows", "nokhwa-bindings-linux", "nokhwa-core"]
+ exclude = ["examples/jscam"]
+ 
+ [lib]
