@@ -10,6 +10,26 @@
     "hash": "sha256-1nUg8ptdQs0K5lohagI/vBlAbCpnI08l6CdEsy64Dr8="
   },
   {
+    "pname": "SkiaSharp",
+    "version": "3.119.1",
+    "hash": "sha256-TIVr52NpQ9cab5eJCcH/OYHjNOTKhwCqpClK2c8S4TM="
+  },
+  {
+    "pname": "SkiaSharp.NativeAssets.Linux.NoDependencies",
+    "version": "3.119.1",
+    "hash": "sha256-SprThyApThbDoeTn/JaaS7TKdm9SkMoVO8V8HuCyppI="
+  },
+  {
+    "pname": "SkiaSharp.NativeAssets.macOS",
+    "version": "3.119.1",
+    "hash": "sha256-0QJGcO91MWLSeQpE4ZNn/KUVoHRcrPeDbKklxCVB00o="
+  },
+  {
+    "pname": "SkiaSharp.NativeAssets.Win32",
+    "version": "3.119.1",
+    "hash": "sha256-ySPkn8SrShOqhihC33EJ4HJt9desDISC4gAI4FQBi2U="
+  },
+  {
     "pname": "Superpower",
     "version": "3.0.0",
     "hash": "sha256-5MNmhBDYyOs+sTH364Qdn+Ck328BAQaVC1KMQ7yK2Vw="

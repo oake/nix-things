@@ -5,14 +5,23 @@ pkgs.buildDotnetModule {
   src = pkgs.fetchFromGitHub {
     owner = "maeve-oake";
     repo = "beesly";
-    rev = "64d22d7c4cab42dc16a6559b83db7ced0536eb9c";
-    hash = "sha256-TWYaINaEMo8v/5tHYmBjC/SB/+/xJc3TyeNZFhk8yN8=";
+    rev = "fc5532022c010883bd2216941c51871a1ab599ca";
+    hash = "sha256-GBBgWW0jfbzL9SYp09NTJzVlaCEs4PBdXKpdFP6Sd8M=";
   };
   projectFile = "beesly.csproj";
   nugetDeps = ./deps.json;
   dotnet-sdk = pkgs.dotnet-sdk_10;
   dotnet-runtime = pkgs.dotnet-aspnetcore_10;
   executables = [ "beesly" ];
+  nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+  buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+  doInstallCheck = true;
+  nativeInstallCheckInputs = [ pkgs.python3 ];
+  installCheckPhase = ''
+    runHook preInstallCheck
+    BEESLY_EXECUTABLE="$out/bin/beesly" python3 tests/touch_ui.py
+    runHook postInstallCheck
+  '';
   meta = {
     description = "Cisco phone XML services with Home Assistant and FreePBX integration";
     homepage = "https://github.com/maeve-oake/beesly";

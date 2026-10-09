@@ -85,7 +85,47 @@ in
       entities = mkOption {
         type = types.listOf entity;
         default = [ ];
-        description = "Entities exposed on the phone: entity IDs or objects with entityId, name and allowToggle.";
+        description = "Main-menu entities only: IDs or objects with entityId, name and allowToggle. Does not configure touch views or AMI.";
+      };
+      views = mkOption {
+        default = { };
+        description = "Named touch UIs, served at /ha/touch.xml?view=<name>, independently of AMI and the main menu.";
+        type = types.attrsOf (
+          types.submodule {
+            options = {
+              title = mkOption {
+                type = types.str;
+                description = "Window title rendered by Beesly.";
+              };
+              type = mkOption {
+                type = types.enum [
+                  "lamp"
+                  "aircon"
+                  "multiple"
+                ];
+                description = "Control layout.";
+              };
+              entity = mkOption {
+                type = types.nullOr entity;
+                default = null;
+                description = "Entity for a lamp or aircon view.";
+              };
+              entities = mkOption {
+                type = types.listOf entity;
+                default = [ ];
+                description = "Controls for a multiple view, in display order; automatically paginated.";
+              };
+              swatch = {
+                enable = mkEnableOption "colour swatches with independent light targets";
+                entities = mkOption {
+                  type = types.listOf entity;
+                  default = [ ];
+                  description = "Lights affected by colour and brightness when swatches are enabled. Need not be displayed controls.";
+                };
+              };
+            };
+          }
+        );
       };
     };
     ami = {
@@ -110,12 +150,23 @@ in
       slots = mkOption {
         type = types.attrsOf types.str;
         default = { };
-        description = "BLF slots 01–24 mapped to enabled HA entity IDs. The lamp and air conditioner screens use slots 01 and 02.";
+        description = "BLF slots 01–24 mapped to controllable HA entity IDs, independently of menus and touch views.";
       };
     };
   };
 
   config = mkIf cfg.enable {
+    assertions = lib.mapAttrsToList (id: view: {
+      assertion =
+        (
+          if view.type == "multiple" then
+            view.entity == null && view.entities != [ ]
+          else
+            view.entity != null && view.entities == [ ]
+        )
+        && (!view.swatch.enable || view.swatch.entities != [ ]);
+      message = "services.beesly.homeAssistant.views.${id}: use entity for lamp/aircon or entities for multiple; enabled swatches need targets.";
+    }) cfg.homeAssistant.views;
     services.cisco.protectedTCPPorts = [ cfg.port ];
 
     systemd.services.beesly = {
@@ -135,6 +186,9 @@ in
         FRAMEWORK_LOG_LEVEL = cfg.frameworkLogLevel;
         HA_URL = cfg.homeAssistant.url;
         HA_ENTITIES = builtins.toJSON cfg.homeAssistant.entities;
+        UI_VIEWS_FILE = toString (
+          pkgs.writeText "beesly-views.json" (builtins.toJSON cfg.homeAssistant.views)
+        );
         AMI_SLOTS = builtins.toJSON cfg.ami.slots;
       }
       // lib.optionalAttrs (cfg.homeAssistant.tokenFile != null) {
