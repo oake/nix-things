@@ -21,18 +21,44 @@
         "usbmuxd.service"
       ];
       unitConfig.StartLimitIntervalSec = 0;
+      path = [
+        pkgs.coreutils
+        pkgs.util-linux
+      ];
+      # GVFS discovers mounts directly under /run/media; the public link stays absent until mounted.
+      script = ''
+        deadline=$((SECONDS + 120))
+        while (( SECONDS < deadline )); do
+          if error=$(timeout --kill-after=1s 10s mount -t fuse3 \
+            -o nosuid,nodev,allow_other,default_permissions,gid=${toString config.users.groups.users.gid},umask=007 \
+            ${pkgs.ifuse}/bin/ifuse /run/media/iPhone 2>&1); then
+            # Publish only a successful mount; don't retry an occupied public path.
+            ln -sT /run/media/iPhone /mnt/iPhone || exit 78
+            exit 0
+          fi
+          sleep 1
+        done
+        error="''${error%%$'\n'*}"
+        echo "iPhone mount unavailable; retrying: ''${error:-mount timed out}" >&2
+        exit 1
+      '';
+      postStop = ''
+        if [ "$(readlink /mnt/iPhone 2>/dev/null)" = /run/media/iPhone ]; then
+          rm /mnt/iPhone
+        fi
+        if mountpoint -q /run/media/iPhone; then
+          umount -l /run/media/iPhone
+        fi
+      '';
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p -m 0700 /mnt/iPhone";
-        ExecStart = "${pkgs.util-linux}/bin/mount -t fuse3 -o nosuid,nodev,allow_other,default_permissions,gid=${toString config.users.groups.users.gid},umask=007,x-gvfs-show,x-gvfs-name=iPhone,x-gvfs-icon=phone ${pkgs.ifuse}/bin/ifuse /mnt/iPhone";
-        ExecStopPost = [
-          "-${pkgs.util-linux}/bin/umount -l /mnt/iPhone"
-          "-${pkgs.coreutils}/bin/rmdir /mnt/iPhone"
-        ];
+        RuntimeDirectory = "media/iPhone";
+        RuntimeDirectoryMode = "0700";
+        TimeoutStartSec = "150s";
         Restart = "on-failure";
-        RestartSec = "3s";
-        TimeoutStartSec = "120s";
+        RestartSec = "1s";
+        RestartPreventExitStatus = [ 78 ];
       };
     };
 
