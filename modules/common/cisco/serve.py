@@ -88,6 +88,8 @@ def serve_http(root, bind, port):
     from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
     class Handler(SimpleHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=root, **kwargs)
 
