@@ -6,11 +6,14 @@ pkgs.buildGoModule {
   inherit pname;
   src =
     let
-      source = pkgs.fetchFromGitHub {
+      # Filtering reads the tree during evaluation. Use an evaluator fetcher so
+      # this never needs to build a fetch derivation for the target platform.
+      source = builtins.fetchTree {
+        type = "github";
         owner = "oake";
         repo = "infra";
         rev = "0d1ae48e2df82449d087ddd2e403afeddea94ce5";
-        hash = "sha256-/7mQ9k1ZWXqQDvqkd9LONlZ6vA8z9+FhW7PYZooNezI=";
+        narHash = "sha256-/7mQ9k1ZWXqQDvqkd9LONlZ6vA8z9+FhW7PYZooNezI=";
       };
       component = pkgs.lib.removePrefix "infra-" pname;
     in
