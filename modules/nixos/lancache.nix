@@ -126,25 +126,21 @@ with lib.options;
         '';
       };
 
-      workerProcesses =
-        lib.mkOption {
-          type = lib.types.oneOf [
-            (types.enum [ "auto" ])
-            (types.ints.u32)
-          ];
-          description = ''
-            Defines the number of worker processes.
+      workerProcesses = lib.mkOption {
+        type = lib.types.oneOf [
+          (types.enum [ "auto" ])
+          (types.ints.positive)
+        ];
+        description = ''
+          Defines the number of worker processes.
 
 
-            Corresponds to the environment variable: `NGINX_WORKER_PROCESSES` in standard
-            lancache config.
+          Corresponds to the environment variable: `NGINX_WORKER_PROCESSES` in standard
+          lancache config.
 
-          '';
-          default = "auto";
-        }
-        // {
-          apply = (builtins.toString);
-        };
+        '';
+        default = "auto";
+      };
 
       listenAddress = mkOption {
         type = types.str;
@@ -194,12 +190,7 @@ with lib.options;
         recommendedOptimisation = true;
         recommendedGzipSettings = true;
 
-        appendConfig =
-          #nginx
-          ''
-            # workers.conf
-            worker_processes ${builtins.toString cfg.workerProcesses};
-          '';
+        workerProcesses = cfg.workerProcesses;
 
         appendHttpConfig = # nginx
           ''
