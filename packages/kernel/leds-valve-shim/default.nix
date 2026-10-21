@@ -33,7 +33,9 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    install -D -m 0644 leds-valve-shim.ko $out/lib/modules/${kernel.modDirVersion}/extra/leds-valve-shim.ko
+    make -C ${kernel.dev}/lib/modules/${kernel.modDirVersion}/build \
+      M="$PWD" INSTALL_MOD_PATH="$out" \
+      ''${makeFlags[@]} ''${makeFlagsArray[@]} modules_install
 
     runHook postInstall
   '';
