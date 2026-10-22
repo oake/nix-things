@@ -8,8 +8,10 @@ let
     makeDesktopItem
     jdk25
     undmg
+    darwin
     ;
   isDarwin = stdenvNoCC.hostPlatform.isDarwin;
+  emudhraSrc = ./emudhra;
   desktopItem = makeDesktopItem {
     categories = [
       "Network"
@@ -55,11 +57,31 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   sourceRoot = if isDarwin then "Charles.app" else null;
-  nativeBuildInputs = [ makeWrapper ] ++ lib.optionals isDarwin [ undmg ];
+  nativeBuildInputs = [
+    makeWrapper
+    jdk25
+  ]
+  ++ lib.optionals isDarwin [
+    undmg
+  ];
   dontConfigure = true;
   dontBuild = true;
   # Fixup would rewrite the signed Mach-O binaries (launcher, JNI libs, bundled JDK).
   dontFixup = isDarwin;
+
+  preInstall = ''
+    jarPath="$(find . -name charles.jar -print -quit)"
+    if [ -z "$jarPath" ]; then echo "charles.jar not found" >&2; exit 1; fi
+    jarDir="$(dirname "$jarPath")"
+    classpath="$(ls "$jarDir"/*.jar | tr '\n' ':')"
+    mkdir -p "$NIX_BUILD_TOP/emudhra-classes"
+    javac -nowarn -proc:none -cp "$classpath" -d "$NIX_BUILD_TOP/emudhra-classes" \
+      ${emudhraSrc}/*.java
+    (
+      cd "$jarDir"
+      jar uf charles.jar -C "$NIX_BUILD_TOP/emudhra-classes" .
+    )
+  '';
 
   installPhase = ''
     runHook preInstall
