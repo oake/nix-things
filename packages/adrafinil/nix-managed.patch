@@ -1,0 +1,1501 @@
+diff --git a/Adrafinil/App/AppDelegate.swift b/Adrafinil/App/AppDelegate.swift
+index bf674f9..e47c5fa 100644
+--- a/Adrafinil/App/AppDelegate.swift
++++ b/Adrafinil/App/AppDelegate.swift
+@@ -94,10 +94,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
+                 // registered) the menu-bar app wouldn't return on its own after a reboot.
+                 // Gated on setup having run: merely launching the app to look at the installer
+                 // must not register anything.
+-                if AdrafinilSettings.load().launchAtLogin, SMAppService.mainApp.status != .enabled {
+-                    try? SMAppService.mainApp.register()
+-                }
+-
+                 // Adrafinil is active only while this app is open. Quitting pauses the daemon (see
+                 // `applicationShouldTerminate`), so resume here to undo a previous quit-pause —
+                 // reopening the app puts it back to work. Retried, since this launch can coincide
+diff --git a/Adrafinil/App/AppStatusModel.swift b/Adrafinil/App/AppStatusModel.swift
+index 391b77f..1f0e998 100644
+--- a/Adrafinil/App/AppStatusModel.swift
++++ b/Adrafinil/App/AppStatusModel.swift
+@@ -186,7 +186,6 @@ final class AppStatusModel {
+     /// hook shape like Codex's Stop release without re-running setup), recompute agent health so the
+     /// menu-bar badge reflects any freshly-needed trust/reconnect, and run the throttled update check.
+     private func runLaunchMaintenance() async {
+-        HookMigrator.runIfNeeded(agentHooks: agentHooks)
+         refreshAgentHealth()
+         // If the last launch's silent update landed, the badge announces it until acknowledged.
+         // No update check here: SilentUpdates' loop (started by AppDelegate) makes the day's
+@@ -232,11 +231,9 @@ final class AppStatusModel {
+     /// `.enabled` means the daemon should be reachable, so a failed call is transient (`.ok` here,
+     /// keeping the generic "isn't responding" path); the other states mean it can't come up at all.
+     static func liveServiceState() -> ServiceState {
+-        switch SMAppService.agent(plistName: "LaunchAgent.plist").status {
+-        case .enabled: .ok
+-        case .requiresApproval: .needsApproval
+-        default: .notRegistered
+-        }
++        // Nix installs the LaunchAgent directly; SMAppService cannot report its state.
++        // Reachability is established by the real XPC request, with the usual retry threshold.
++        .ok
+     }
+ 
+     /// Called when a daemon call fails. Distinguishes a transient hiccup (service enabled, just
+diff --git a/Adrafinil/App/DesignSystem/Theme.swift b/Adrafinil/App/DesignSystem/Theme.swift
+index c0b2227..7d0259f 100644
+--- a/Adrafinil/App/DesignSystem/Theme.swift
++++ b/Adrafinil/App/DesignSystem/Theme.swift
+@@ -6,7 +6,7 @@ import SwiftUI
+ /// cutout.
+ extension Theme {
+     /// The amber accent — "awake". Backed by the AccentColor asset (light + dark variants).
+-    static let awake = Color.accentColor
++    static let awake = Color(red: 1.0, green: 0.72, blue: 0.18)
+     /// Foreground for content sitting *on* the saturated amber accent (e.g. a prominent button).
+     /// The accent fill stays light in both light and dark mode, so this is a fixed warm near-black
+     /// rather than `.primary` (which would flip to white in dark mode and fail contrast on amber).
+diff --git a/Adrafinil/App/HookMigrator.swift b/Adrafinil/App/HookMigrator.swift
+index f6ba3cf..46f469c 100644
+--- a/Adrafinil/App/HookMigrator.swift
++++ b/Adrafinil/App/HookMigrator.swift
+@@ -18,24 +18,8 @@ enum HookMigrator {
+         isFirstRun: Bool = HelperInstaller.isFirstRun,
+         defaults: UserDefaults = .standard,
+     ) -> [AgentKind] {
+-        let lastBuild = defaults.string(forKey: HookMigration.lastBuildDefaultsKey)
+-        let states = agentHooks.detectedAgents().map { (agent: $0, state: agentHooks.installState(for: $0)) }
+-        let toReinstall = HookMigration.agentsToReinstall(
+-            lastBuild: lastBuild, currentBuild: currentBuild, isFirstRun: isFirstRun, states: states,
+-        )
+-        if lastBuild != currentBuild {
+-            defaults.set(currentBuild, forKey: HookMigration.lastBuildDefaultsKey)
+-        }
+-        var reinstalled: [AgentKind] = []
+-        for agent in toReinstall {
+-            do {
+-                try agentHooks.install(for: agent)
+-                reinstalled.append(agent)
+-            } catch {
+-                // Leave it: the drift card / Codex trust note still nudges the user to reconnect.
+-            }
+-        }
+-        return reinstalled
++        // Hooks are declared by the user's configuration, never migrated by the app.
++        []
+     }
+ 
+     /// The running build (CFBundleVersion), falling back to the marketing version if absent.
+diff --git a/Adrafinil/App/Providers/SetupProviding.swift b/Adrafinil/App/Providers/SetupProviding.swift
+index c1e1bb7..c60f82d 100644
+--- a/Adrafinil/App/Providers/SetupProviding.swift
++++ b/Adrafinil/App/Providers/SetupProviding.swift
+@@ -41,93 +41,16 @@ protocol SetupProviding {
+ 
+ @MainActor
+ struct LiveSetupProvider: SetupProviding {
+-    var isFirstRun: Bool {
+-        HelperInstaller.isFirstRun
+-    }
+-
++    var isFirstRun: Bool { false }
+     func installHelper() async -> [SetupOutcome] {
+-        await HelperInstaller.installIfNeeded().map { entry in
+-            switch entry.result {
+-            case let .failed(msg):
+-                SetupOutcome(name: entry.name, failureMessage: msg)
+-            case .pendingApproval:
+-                SetupOutcome(name: entry.name, failureMessage: nil, requiresApproval: true)
+-            case .enabled:
+-                SetupOutcome(name: entry.name, failureMessage: nil)
+-            }
+-        }
+-    }
+-
+-    func servicesEnabled() -> Bool {
+-        SMAppService.daemon(plistName: "LaunchDaemon.plist").status == .enabled
+-            && SMAppService.agent(plistName: "LaunchAgent.plist").status == .enabled
+-    }
+-
+-    func symlinkCLI() async {
+-        await CLISymlinker.symlinkIfNeeded()
+-    }
+-
+-    func didFinishSetup() {
+-        AwayNotifier.shared.requestAuthorizationUpfront()
+-    }
+-
+-    func openLoginItems() {
+-        SMAppService.openSystemSettingsLoginItems()
++        [SetupOutcome(name: "nix-darwin", failureMessage: "Services are managed by programs.adrafinil.enable.")]
+     }
+-
++    func servicesEnabled() -> Bool { true }
++    func symlinkCLI() async {}
++    func didFinishSetup() {}
++    func openLoginItems() {}
+     func uninstallEverything() async -> [String] {
+-        var issues: [String] = []
+-
+-        // Pause first: a paused daemon rejects acquires, so a still-running agent hook firing
+-        // between the release below and the unregister can't re-set `disablesleep` right before
+-        // the components that would clear it are torn down.
+-        try? await DaemonClient.shared.setPaused(true)
+-        // Clear the sleep block *before* tearing down the helper. `disablesleep` persists in the
+-        // power-management prefs and nothing in powerd clears it on the setter's death — so once the
+-        // helper is unregistered, a still-set block would leave the Mac unable to sleep with no
+-        // component left to fix it. forceReleaseAll drives the helper to clear it and awaits that.
+-        try? await DaemonClient.shared.forceReleaseAll()
+-
+-        // Hooks that can't be cleaned must be reported, not swallowed: they would keep invoking a
+-        // CLI binary that's about to disappear, failing loudly on the agent's every turn.
+-        let installer = HookInstaller(cliPath: CLISymlinker.hookCLIPath)
+-        for kind in AgentKind.allCases {
+-            do {
+-                _ = try installer.uninstall(for: kind)
+-            } catch HookInstaller.SkipReason.notInstalled {
+-                // Not present on this system — nothing to clean.
+-            } catch {
+-                issues.append("\(kind.displayName): \(error.localizedDescription)")
+-            }
+-            // Also pull our MCP server from agents that have it, so we don't leave an `adrafinil`
+-            // entry pointing at a CLI we're about to delete. No-op for agents without MCP support.
+-            do {
+-                _ = try installer.uninstallMCP(for: kind)
+-            } catch HookInstaller.SkipReason.notInstalled {
+-            } catch {
+-                issues.append("\(kind.displayName) MCP entry: \(error.localizedDescription)")
+-            }
+-        }
+-
+-        try? await SMAppService.daemon(plistName: "LaunchDaemon.plist").unregister()
+-        try? await SMAppService.agent(plistName: "LaunchAgent.plist").unregister()
+-        // The app itself is a login item too — leaving it registered would resurrect the
+-        // just-uninstalled app at the next login, straight into the setup flow.
+-        try? await SMAppService.mainApp.unregister()
+-
+-        if let path = CLISymlinker.installedCLIPath {
+-            try? FileManager.default.removeItem(atPath: path)
+-        }
+-
+-        // Remove Adrafinil's own data directory — config.json, events.log, and the CLI socket — now
+-        // that nothing is left to use it (done after unregistering the daemon, which owns the socket,
+-        // and after forceReleaseAll above, which needed it). Leaves no settings or logs behind.
+-        try? FileManager.default.removeItem(at: AdrafinilConstants.appSupportURL)
+-
+-        // Reset first-run so relaunching the bundle walks guided Setup fresh, rather than coming up as
+-        // a half-configured app with no services registered.
+-        HelperInstaller.resetFirstRun()
+-        return issues
++        ["Disable programs.adrafinil.enable and rebuild to uninstall Adrafinil."]
+     }
+ }
+ 
+diff --git a/Adrafinil/App/SilentUpdates.swift b/Adrafinil/App/SilentUpdates.swift
+index 1303232..ceda9b0 100644
+--- a/Adrafinil/App/SilentUpdates.swift
++++ b/Adrafinil/App/SilentUpdates.swift
+@@ -1,278 +1,27 @@
+-import AdrafinilShared
+-import AppKit
+ import Foundation
+ import Observation
+-import os
+-import Tiptoe
+-import TiptoeGitHub
+ 
+-/// The app's updater: downloads from GitHub Releases, verifies, and swaps the bundle in place —
+-/// silently when the user allows it, on an explicit Update Now otherwise.
+-///
+-/// The heavy lifting is [Tiptoe](https://github.com/artginzburg/Tiptoe) over mxcl/AppUpdater:
+-/// AppUpdater checks the release, downloads the DMG, and verifies the Team ID against the running
+-/// app; Tiptoe decides *when* the swap may run. Installing on the app's own is normally the awkward
+-/// part — the swap restarts the app — and here it is worse than awkward: restarting while the
+-/// daemon holds assertions would let the Mac sleep at exactly the moment somebody's agent is
+-/// mid-run. So the automatic path waits for two separate things: Tiptoe watches for the Mac to go
+-/// quiet, and the gate below asks the daemon for the half Tiptoe cannot know.
+-///
+-/// The gate is a veto, not a preference: Tiptoe's own patience relaxes over days, this never does.
+-///
+-/// One check loop serves both modes (Tiptoe ≥ 1.1's `installsAutomatically`): with
+-/// `autoInstallUpdates` off the check still runs and still answers ``availableVersion`` —
+-/// the Settings row and menu-bar card draw from it — but nothing downloads or installs except
+-/// through ``updateNow()``. There is no separate notify-only poller.
+-///
+-/// The loop ticks every ``checkInterval``; between ticks, opening the popover or waking the Mac
+-/// repeats the check once it is ``staleAfter`` old, and the Settings button makes one on demand.
+-/// Each is a single GitHub metadata request, which GitHub itself caches for a minute.
++// No updater library, polling, downloads or in-place replacement in a Nix build.
+ @MainActor
+ @Observable
+ final class SilentUpdates {
+     static let shared = SilentUpdates()
+-
+     static let owner = "kageroumado"
+     static let repo = "adrafinil"
+-
+-    /// The Settings row and the menu-bar card announce a release within hours of it shipping, so
+-    /// a fix reaches people the same day; the request is one cached metadata call.
+-    private static let checkInterval: TimeInterval = 4 * 60 * 60
+-
+-    /// A check older than this is repeated when the popover opens or the Mac wakes: the loop's
+-    /// tick may have landed while the Mac slept, or at a launch before the network was up.
+-    private static let staleAfter: TimeInterval = 60 * 60
+-
+-    /// The network comes back a beat after the Mac does; asking at the wake notification itself
+-    /// fails and leaves the next try to the loop.
+-    private static let wakeGrace: Duration = .seconds(20)
+-
+-    /// Progress of a user-initiated Update Now, for the Settings row. A successful install
+-    /// replaces the process, so the only terminal state this side of the swap is `.failed`.
+-    enum ManualPhase: Equatable {
+-        case idle
+-        case working
+-        case failed(String)
+-    }
+-
++    enum ManualPhase: Equatable { case idle, working, failed(String) }
+     private(set) var manualPhase: ManualPhase = .idle
+-
+-    /// The newest published version when it is newer than the running app, from the check loop —
+-    /// in both modes, downloaded or not. Refreshed by ``refresh()`` — Tiptoe itself is not
+-    /// observable.
+     private(set) var availableVersion: String?
+-
+-    /// The version the automatic path has downloaded and is holding for a quiet moment, if any.
+-    /// A stronger claim than ``availableVersion`` (downloaded and verified, not merely published);
+-    /// refreshed by ``refresh()``.
+     private(set) var pendingVersion: String?
+-
+-    /// True while a user-initiated check is in flight (drives the Settings button's state).
++    private(set) var justUpdatedVersion: String?
+     private(set) var isChecking = false
+-
+-    /// Set after a manual check that found no newer version, so the button can briefly confirm
+-    /// "You're up to date". Reset when a new check starts.
+     private(set) var checkedUpToDate = false
+-
+-    /// The version a silent (or manual) install brought us to, until the user has seen the
+-    /// "what's new" notice. Read from Tiptoe's store at launch; cleared by ``acknowledgeUpdate()``.
+-    private(set) var justUpdatedVersion: String?
+-
+-    /// The one long-lived updater: daily check loop, `availableVersion`, and the quiet-moment
+-    /// install when the mode allows it. Created up front so its `Tiptoe` reconciles the recorded
+-    /// wait (and surfaces `justUpdatedTo`) even before `start()`.
+-    @ObservationIgnored private let github: TiptoeGitHub
+-    @ObservationIgnored private let log = Logger(
+-        subsystem: AdrafinilConstants.appBundleID, category: "SilentUpdates",
+-    )
+-    @ObservationIgnored private var wakeObserver: (any NSObjectProtocol)?
+-
+-    /// When this object last asked GitHub itself. The loop's own ticks are not visible here, so
+-    /// this is a floor on freshness: a stale check may repeat a tick made minutes ago, at the
+-    /// cost of one cached metadata request.
+-    @ObservationIgnored private var lastCheckedAt: Date?
+-
+-    /// The one metadata request in flight, shared by whoever asks while it runs.
+-    @ObservationIgnored private var checkInFlight: Task<Void, Never>?
+-
+-    private init() {
+-        // Notify-only until `start()` applies the user's real setting — which never happens in
+-        // DEBUG, so a development build's manual "Check for updates" stays a metadata request
+-        // and can't download a DMG on the side.
+-        github = TiptoeGitHub(owner: Self.owner, repo: Self.repo, checkInterval: Self.checkInterval)
+-            .gate("agents are being kept awake") { await Self.nothingIsBeingKeptAwake() }
+-            .installsAutomatically(false)
+-        github.onChecksFailing = { [log] error in
+-            log.error("update checks have been failing: \(error.localizedDescription, privacy: .public)")
+-        }
+-        justUpdatedVersion = PostUpdateNotice.reconcile(
+-            recordedVersion: github.tiptoe.justUpdatedTo,
+-            runningVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+-            acknowledge: { github.tiptoe.acknowledge() },
+-        )
+-    }
+-
+-    // MARK: - The check loop
+-
+-    /// Called once at launch (release, post-setup) with the user's setting. The loop always runs;
+-    /// the setting only decides whether a found update is downloaded and installed at a quiet
+-    /// moment or merely reported.
+-    func start(autoInstall: Bool) {
+-        // Never in DEBUG: a development build must not poll GitHub, and must never be swapped
+-        // out from under Xcode. The debug control panel exercises the UI states directly.
+-        #if !DEBUG
+-            github.installsAutomatically(autoInstall).start()
+-            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+-                forName: NSWorkspace.didWakeNotification, object: nil, queue: .main,
+-            ) { [weak self] _ in
+-                MainActor.assumeIsolated {
+-                    self?.checkAfterWake()
+-                }
+-            }
+-        #endif
+-    }
+-
+-    /// Reacts to the Settings toggle. Turning auto off keeps the check loop (and
+-    /// ``availableVersion``) running but downloads and installs nothing; a DMG already downloaded
+-    /// stays downloaded and installs only via ``updateNow()``. Turning it on checks right away.
+-    func setAutoInstall(_ enabled: Bool) {
+-        #if !DEBUG
+-            github.installsAutomatically(enabled)
+-        #endif
+-    }
+-
+-    /// Copies Tiptoe's state into the observable properties. Called when the Settings tab
+-    /// appears, on the status model's heartbeat, and after update actions — Tiptoe has no
+-    /// change callback.
+-    func refresh() {
+-        #if DEBUG
+-            if debugOwnsPending { return } // the debug panel is driving the scenario
+-        #endif
+-        pendingVersion = github.tiptoe.pending?.version
+-        availableVersion = github.availableVersion
+-    }
+-
+-    /// A user-initiated check, for the Settings button: same request the loop makes, off-schedule.
+-    func checkForUpdates() async {
+-        guard !isChecking else { return }
+-        isChecking = true
+-        checkedUpToDate = false
+-        await check()
+-        isChecking = false
+-        // "Nothing newer" and "couldn't reach GitHub" both leave availableVersion nil, so this
+-        // reassurance can be a beat optimistic offline. The loop self-corrects, and
+-        // onChecksFailing reports a real outage.
+-        checkedUpToDate = availableVersion == nil && pendingVersion == nil
+-    }
+-
+-    /// The check the popover's appearance and the Mac's waking make, when the last one is old
+-    /// enough to be worth repeating. Quiet: nothing in the UI shows its progress.
+-    func checkIfStale() {
+-        // A development build does not poll GitHub on its own; the Settings button's check is
+-        // the one request it makes, and only when asked.
+-        #if !DEBUG
+-            if let lastCheckedAt, Date.now.timeIntervalSince(lastCheckedAt) < Self.staleAfter { return }
+-            Task(name: "Check for updates (stale)") { await check() }
+-        #endif
+-    }
+-
+-    private func checkAfterWake() {
+-        Task(name: "Check for updates after wake") { [weak self] in
+-            try? await Task.sleep(for: Self.wakeGrace)
+-            self?.checkIfStale()
+-        }
+-    }
+-
+-    /// One metadata request; a second caller while it runs waits for the same answer.
+-    private func check() async {
+-        if let checkInFlight {
+-            await checkInFlight.value
+-            return
+-        }
+-        let task = Task(name: "Check for updates") { [github] in
+-            await github.checkNow()
+-        }
+-        checkInFlight = task
+-        await task.value
+-        checkInFlight = nil
+-        lastCheckedAt = .now
+-        refresh()
+-    }
+-
+-    // MARK: - Update Now
+-
+-    /// Download (if needed), verify, and install the newest release right away — the user asked,
+-    /// so no quiet moment is waited out and no gate is consulted. On success the app relaunches
+-    /// and this never returns to its caller in a meaningful way; still running a few seconds
+-    /// later means the attempt failed and `manualPhase` says so.
++    func start(autoInstall: Bool) {}
++    func setAutoInstall(_ enabled: Bool) {}
++    func refresh() {}
++    func checkForUpdates() async {}
++    func checkIfStale() {}
+     func updateNow() async {
+-        guard manualPhase != .working else { return }
+-        #if DEBUG
+-            manualPhase = .failed(String(localized: "In-place updating is disabled in development builds."))
+-        #else
+-            manualPhase = .working
+-
+-            // Ask GitHub first. With automatic installs on, the DMG the loop downloaded may be
+-            // days old and one release behind, and `github.updateNow()` installs what it holds
+-            // as it stands; this check replaces a stale download with the newest release. With
+-            // installs off it only refreshes `availableVersion`, and `updateNow()` downloads
+-            // the newest itself.
+-            await check()
+-
+-            // Installs the DMG the automatic path holds, or downloads and verifies one
+-            // now — `false` means there was nothing newer or the download couldn't be prepared.
+-            guard await github.updateNow() else {
+-                // `availableVersion` is set only by a check that reached GitHub and found an
+-                // installable DMG; without it there is nothing to download, whatever the network.
+-                manualPhase = .failed(
+-                    github.availableVersion == nil
+-                        ? String(localized: "Couldn't find a download for this update. Get it from the releases page.")
+-                        : String(localized: "Couldn't download the update. Check your connection, or get it from the releases page."),
+-                )
+-                refresh()
+-                return
+-            }
+-
+-            // A successful swap terminates this process on its own schedule, possibly a beat
+-            // after the install call returns — wait it out before declaring failure.
+-            try? await Task.sleep(for: .seconds(4))
+-            refresh()
+-            manualPhase = .failed(String(localized: "The update couldn't be installed. Try again, or get it from the releases page."))
+-        #endif
++        manualPhase = .failed("Updates are managed by Nix. Update your flake input and rebuild.")
+     }
+-
+-    /// The user has seen the post-update notice.
+-    func acknowledgeUpdate() {
+-        justUpdatedVersion = nil
+-        github.tiptoe.acknowledge()
+-    }
+-
+-    // MARK: - The gate
+-
+-    /// The daemon owns the assertion registry, so this is a real XPC round trip rather than a glance
+-    /// at cached state — deliberately, since a stale "nothing running" is exactly the answer that
+-    /// would restart the app under a working agent.
+-    ///
+-    /// An unreachable daemon answers "no". The app cannot tell whether anything is being kept awake,
+-    /// and an update is never so urgent that it is worth guessing.
+-    private static func nothingIsBeingKeptAwake() async -> Bool {
+-        guard let status = try? await DaemonClient.shared.fetchStatus() else { return false }
+-        return !status.isBlocking && status.assertions.isEmpty
+-    }
+-
+-    #if DEBUG
+-        /// While the debug panel drives `pendingVersion`, `refresh()` must not overwrite it
+-        /// with the (empty) real Tiptoe state when the Settings tab appears.
+-        @ObservationIgnored private var debugOwnsPending = false
+-
+-        /// Drive the Settings row's states from the debug control panel without any network.
+-        func debugSet(pending: String?) {
+-            debugOwnsPending = pending != nil
+-            pendingVersion = pending
+-        }
+-
+-        func debugSet(manualPhase: ManualPhase) {
+-            self.manualPhase = manualPhase
+-        }
+-    #endif
++    func acknowledgeUpdate() {}
+ }
+diff --git a/Adrafinil/App/UsageCounting.swift b/Adrafinil/App/UsageCounting.swift
+index ff4e415..fee7229 100644
+--- a/Adrafinil/App/UsageCounting.swift
++++ b/Adrafinil/App/UsageCounting.swift
+@@ -1,227 +1,9 @@
+ import AdrafinilShared
+-import Digoxin
+-import Foundation
+-import OSLog
+ 
+-/// How many people use Adrafinil, and Adrafinil's own crashes, through Digoxin at the tier the
+-/// person chose (``tier``).
+-///
+-/// A check-in carries the versions, the chip family, the memory class, the language, the count
+-/// of days used in the last week, and the two properties in ``properties()``. It names no agent
+-/// and nothing that was worked on.
+ nonisolated enum UsageCounting {
+-    static let app = "adrafinil"
+-
+-    /// Production for a release build. A Debug build reports to a Digoxin on this Mac, or to
+-    /// the one `ADRAFINIL_DIGOXIN_URL` names.
+-    static let baseURL: URL = {
+-        #if DEBUG
+-            ProcessInfo.processInfo.environment["ADRAFINIL_DIGOXIN_URL"].flatMap(URL.init(string:))
+-                ?? URL(string: "http://127.0.0.1:9130/api/digoxin")!
+-        #else
+-            URL(string: "https://kagerou.glass/api/digoxin")!
+-        #endif
+-    }()
+-
+-    private static let log = Logger(subsystem: AdrafinilConstants.appBundleID, category: "usage-counting")
+-
+-    static let client = Digoxin(configuration: .init(
+-        app: app,
+-        baseURL: baseURL,
+-        storageDirectory: AdrafinilConstants.appSupportURL,
+-        propertiesProvider: { properties() },
+-        log: { log.info("\($0, privacy: .public)") },
+-    ))
+-
+-    /// The two keys the server keeps for this app; any other key is dropped there.
+-    /// `closedLid` is whether this Mac has a lid, so holds carry through a closed one.
+-    /// `agentKinds7d` is how many kinds of agent held an assertion in the last 7 days,
+-    /// a count only: which kinds stays on this Mac (``AgentKindsSeen``).
+-    static func properties() -> [String: TelemetryValue] {
+-        [
+-            "closedLid": .bool(DeviceCapabilities.current.hasLid),
+-            "agentKinds7d": .int(AgentKindsSeen.countInLastWeek()),
+-        ]
+-    }
+-
+-    /// At launch: applies the stored tier, sends the reports of crashes since the last look, and
+-    /// counts the day.
+-    static func start() {
+-        Task.detached(name: "Usage counting at launch") {
+-            await client.setTier(tier ?? .off)
+-            await submitOwnCrashes()
+-            await client.recordUse()
+-        }
+-    }
+-
+-    /// The popover opened: counts the day, and sends a crash that happened while the app stayed up.
+-    static func noteUse() {
+-        Task.detached(name: "Usage counting on use") {
+-            await submitOwnCrashes()
+-            await client.recordUse()
+-        }
+-    }
+-
+-    /// The person's choice, from the question card or Settings.
+-    static func choose(_ newTier: ConsentTier) {
+-        let previous = tier
+-        tier = newTier
+-        // Crashes before the choice are not the choice's to send.
+-        if newTier == .crashReports, previous != .crashReports {
+-            ownCrashesCheckedAt = Date()
+-        }
+-        log.info("chose \(newTier.rawValue, privacy: .public)")
+-        Task.detached(name: "Apply the usage counting tier") {
+-            await client.setTier(newTier)
+-            if newTier != .off { await client.recordUse() }
+-        }
+-    }
+-
+-    /// One report per crash of the app, the daemon or the helper since the last look, at the
+-    /// crash-reports tier; the look moves forward at every tier, so turning reports on later
+-    /// sends nothing from before.
+-    private static func submitOwnCrashes() async {
+-        let now = Date()
+-        let since = ownCrashesCheckedAt
+-        ownCrashesCheckedAt = now
+-        guard tier == .crashReports, let since else { return }
+-        let found = OwnCrashReports.processNames.flatMap {
+-            DiagnosticReports.reports(forProcess: $0, after: since)
+-        }
+-        for report in OwnCrashReports.ours(found, identity: .running) {
+-            await client.submitCrashReport(files: [report])
+-        }
+-    }
+-
+-    // MARK: - Stored choice
+-
+-    /// The Digoxin tier the person chose; `nil` until they have been asked, which is what makes
+-    /// the question appear once.
+-    static var tier: ConsentTier? {
+-        get { UserDefaults.standard.string(forKey: tierKey).flatMap(ConsentTier.init(rawValue:)) }
+-        set { UserDefaults.standard.set(newValue?.rawValue, forKey: tierKey) }
+-    }
+-
+-    static let tierKey = "usageCounting"
+-
+-    /// When the crash reports of the app, the daemon and the helper were last looked for:
+-    /// reports written after it are the ones not yet sent.
+-    static var ownCrashesCheckedAt: Date? {
+-        get { UserDefaults.standard.object(forKey: "usageCountingCrashesCheckedAt") as? Date }
+-        set { UserDefaults.standard.set(newValue, forKey: "usageCountingCrashesCheckedAt") }
+-    }
++    static func start() {}
++    static func noteUse() {}
+ }
+-
+-// MARK: - Agent kinds seen
+-
+-/// Which kinds of agent held an assertion lately, kept on this Mac so a check-in can carry
+-/// their number. The record itself never leaves: only ``countInLastWeek()`` is sent.
+ nonisolated enum AgentKindsSeen {
+-    private static let key = "usageCountingAgentKindsSeen"
+-    private static let window: TimeInterval = 7 * 24 * 3_600
+-    /// A kind stamped this recently is not stamped again, so a live popover (one status every
+-    /// 5 s) does not rewrite the defaults on every tick.
+-    private static let restampAfter: TimeInterval = 3_600
+-
+-    /// Stamps every agent kind among `assertions` with `now`.
+-    static func note(_ assertions: [Assertion], now: Date = Date()) {
+-        let kinds = Set(assertions.compactMap { AgentKind(rawValue: $0.tool) })
+-        guard !kinds.isEmpty else { return }
+-        var seen = stored()
+-        let stale = kinds.filter { now.timeIntervalSince(seen[$0.rawValue] ?? .distantPast) > restampAfter }
+-        guard !stale.isEmpty else { return }
+-        for kind in stale {
+-            seen[kind.rawValue] = now
+-        }
+-        seen = seen.filter { now.timeIntervalSince($0.value) < window }
+-        UserDefaults.standard.set(seen, forKey: key)
+-    }
+-
+-    /// How many distinct kinds held an assertion in the last 7 days.
+-    static func countInLastWeek(now: Date = Date()) -> Int {
+-        stored().values.count { now.timeIntervalSince($0) < window }
+-    }
+-
+-    private static func stored() -> [String: Date] {
+-        (UserDefaults.standard.dictionary(forKey: key) as? [String: Date]) ?? [:]
+-    }
+-}
+-
+-// MARK: - Yesterday's count
+-
+-/// Yesterday's count of Macs that counted themselves in, from the service's one public route,
+-/// fetched once per process. A failure shows nothing and is tried again an hour later.
+-actor ActiveCount {
+-    static let shared = ActiveCount()
+-
+-    private var cached: Int?
+-    private var failedAt: Date?
+-    private static let retryAfter: TimeInterval = 3_600
+-
+-    /// Yesterday's count from the service's public summary, kept for the process once it has
+-    /// arrived; a failed ask is tried again after an hour.
+-    func value() async -> Int? {
+-        if let cached { return cached }
+-        if let failedAt, Date().timeIntervalSince(failedAt) < Self.retryAfter { return nil }
+-        do {
+-            let count = try await UsageCounting.client.activeCount().active
+-            cached = count
+-            return count
+-        } catch {
+-            failedAt = Date()
+-            return nil
+-        }
+-    }
+-}
+-
+-// MARK: - Own crash reports
+-
+-/// Which of the crash reports macOS wrote belong to this copy of Adrafinil.
+-///
+-/// A Debug build and the installed app share the bundle identifier and run under the same
+-/// process names, and macOS writes `procPath` with the home folder masked (`/Users/USER/…`), so
+-/// neither tells them apart. The header line's `slice_uuid` does: every crash names the UUID
+-/// of the image that crashed, and each build's images have their own.
+-nonisolated enum OwnCrashReports {
+-    /// The app, the user daemon inside it, and the privileged helper. The helper runs as root,
+-    /// so macOS writes its reports under `/Library/Logs/DiagnosticReports`.
+-    static let processNames = ["Adrafinil", "AdrafinilDaemon", "AdrafinilHelper"]
+-
+-    /// `bug_type` of a crash. A hang or a spin is written under other types.
+-    static let crashBugType = "309"
+-
+-    /// What this copy's crashes carry in their header line.
+-    struct Identity: Equatable {
+-        /// The Mach-O UUIDs of the app, the daemon and the helper, uppercase.
+-        var imageUUIDs: Set<String>
+-
+-        static var running: Identity {
+-            let bundle = Bundle.main.bundleURL
+-            let daemon = bundle.appending(path: "Contents/Library/LaunchAgents/AdrafinilDaemon")
+-            let helper = bundle.appending(path: "Contents/Library/LaunchDaemons/AdrafinilHelper")
+-            return Identity(imageUUIDs: Set(
+-                [MachOIdentity.ofThisProcess, MachOIdentity.ofFile(daemon), MachOIdentity.ofFile(helper)]
+-                    .compactMap(\.self),
+-            ))
+-        }
+-    }
+-
+-    /// The crashes among `reports` that are this copy's.
+-    static func ours(_ reports: [URL], identity: Identity) -> [URL] {
+-        reports.filter { url in
+-            guard let data = try? Data(contentsOf: url) else { return false }
+-            return isCrash(data, of: identity)
+-        }
+-    }
+-
+-    /// Whether an `.ips` file (a JSON header line, then the JSON body) is a crash of an image
+-    /// `identity` names.
+-    static func isCrash(_ ips: Data, of identity: Identity) -> Bool {
+-        let line = ips.prefix { $0 != UInt8(ascii: "\n") }
+-        guard let header = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+-              header["bug_type"] as? String == crashBugType,
+-              let uuid = header["slice_uuid"] as? String
+-        else { return false }
+-        return identity.imageUUIDs.contains(uuid.uppercased())
+-    }
++    static func note(_ assertions: [Assertion]) {}
+ }
+diff --git a/Adrafinil/App/UsageQuestionCard.swift b/Adrafinil/App/UsageQuestionCard.swift
+index 577324b..5879853 100644
+--- a/Adrafinil/App/UsageQuestionCard.swift
++++ b/Adrafinil/App/UsageQuestionCard.swift
+@@ -1,63 +1,5 @@
+-import Digoxin
+-import Propofol
+ import SwiftUI
+ 
+-/// Digoxin's question: whether this Mac is counted among Adrafinil's users. Asked once, the
+-/// first time the popover opens without a stored choice (so a copy updated from an earlier
+-/// version is asked too); Settings › General holds the choice from then on.
+ struct UsageQuestionCard: View {
+-    @State private var isAsking = UsageCounting.tier == nil
+-    @State private var activeCount: Int?
+-
+-    var body: some View {
+-        if isAsking {
+-            VStack(alignment: .leading, spacing: Theme.Space.md) {
+-                HStack(alignment: .top, spacing: Theme.Space.md) {
+-                    Image(systemName: "person.2")
+-                        .font(.system(size: 26))
+-                        .foregroundStyle(Theme.awake)
+-                        .symbolRenderingMode(.hierarchical)
+-                        .frame(width: 30)
+-                    VStack(alignment: .leading, spacing: 2) {
+-                        Text("Count yourself in")
+-                            .font(.system(.body, design: .rounded).weight(.semibold))
+-                        Text("One anonymous check-in a day counts how many people use Adrafinil. It never includes what you work on or which agents you run. Settings › General lists what is sent.")
+-                            .font(.caption).foregroundStyle(.secondary)
+-                            .fixedSize(horizontal: false, vertical: true)
+-                        if let activeCount {
+-                            Text("Yesterday, \(activeCount) Macs counted themselves in.")
+-                                .font(.caption).foregroundStyle(.tertiary)
+-                                .fixedSize(horizontal: false, vertical: true)
+-                        }
+-                    }
+-                    .frame(maxWidth: .infinity, alignment: .leading)
+-                }
+-                HStack(spacing: Theme.Space.sm) {
+-                    Button { answer(.off) } label: {
+-                        Text("Not Now").frame(maxWidth: .infinity)
+-                    }
+-                    .buttonStyle(.glass)
+-                    .controlSize(.large)
+-                    .frame(maxWidth: .infinity)
+-                    Button { answer(.counting) } label: {
+-                        Text("Count Me In").frame(maxWidth: .infinity).foregroundStyle(Theme.onAwake)
+-                    }
+-                    .buttonStyle(.glassProminent)
+-                    .controlSize(.large)
+-                    .tint(Theme.awake)
+-                    .frame(maxWidth: .infinity)
+-                }
+-            }
+-            .padding(Theme.Space.md)
+-            .frame(maxWidth: .infinity, alignment: .leading)
+-            .glassCard(tint: Theme.awake.opacity(0.16))
+-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+-            .task { activeCount = await ActiveCount.shared.value() }
+-        }
+-    }
+-
+-    private func answer(_ tier: ConsentTier) {
+-        UsageCounting.choose(tier)
+-        withAnimation(.smooth(duration: 0.3)) { isAsking = false }
+-    }
++    var body: some View { EmptyView() }
+ }
+diff --git a/Adrafinil/App/WhatsNewView.swift b/Adrafinil/App/WhatsNewView.swift
+index 58c0d5a..e1af35e 100644
+--- a/Adrafinil/App/WhatsNewView.swift
++++ b/Adrafinil/App/WhatsNewView.swift
+@@ -16,14 +16,8 @@ struct ReleaseNotes: Sendable, Equatable {
+ /// owns the (single) in-flight fetch, so there is nothing to cache or throttle here.
+ enum ReleaseNotesLoader {
+     static func fetch(version: String) async -> ReleaseNotes? {
+-        let api = URL(string: "https://api.github.com/repos/\(SilentUpdates.owner)/\(SilentUpdates.repo)/releases/tags/v\(version)")!
+-        var request = URLRequest(url: api)
+-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+-        request.timeoutInterval = 10
+-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+-              (response as? HTTPURLResponse)?.statusCode == 200,
+-              let release = try? JSONDecoder().decode(Release.self, from: data) else { return nil }
+-        return ReleaseNotes(version: version, body: release.body ?? "", url: release.htmlURL)
++        // Release metadata and updates are managed by Nix, not fetched by the app.
++        nil
+     }
+ 
+     private struct Release: Decodable {
+diff --git a/Adrafinil/Installer/CLISymlinker.swift b/Adrafinil/Installer/CLISymlinker.swift
+index 74c6ee2..1fc0ca8 100644
+--- a/Adrafinil/Installer/CLISymlinker.swift
++++ b/Adrafinil/Installer/CLISymlinker.swift
+@@ -1,81 +1,12 @@
+-import AdrafinilShared
+ import Foundation
+-import OSLog
+ 
+-/// Symlinks the bundled `adrafinil` CLI to /usr/local/bin/adrafinil (or ~/.local/bin
+-/// on a non-admin install) so hook configs can invoke it as plain `adrafinil`.
+ @MainActor
+ enum CLISymlinker {
+-    private static let log = Logger(subsystem: AdrafinilConstants.appBundleID, category: "CLISymlinker")
+-
+-    static var installedCLIPath: String? {
+-        let primary = AdrafinilConstants.cliInstallPath
+-        let fallback = AdrafinilConstants.cliFallbackInstallPath
+-        if FileManager.default.isExecutableFile(atPath: primary) { return primary }
+-        if FileManager.default.isExecutableFile(atPath: fallback) { return fallback }
+-        return nil
+-    }
+-
+-    /// The CLI path Adrafinil bakes into the hook commands it writes — and the one it compares
+-    /// against when reporting each agent's connection state. **Deliberately the in-bundle path, not
+-    /// the `installedCLIPath` symlink**, and that ordering is the whole point:
+-    ///
+-    /// `symlinkIfNeeded()` creates `~/.local/bin/adrafinil` (or `/usr/local/bin`) *asynchronously*,
+-    /// so whether the symlink exists is timing-dependent. Hooks written during first-run setup land
+-    /// before the symlink does and embed the bundle path; if `installState` later resolved to the
+-    /// now-present symlink, it would compare two *different absolute paths for the very same binary*
+-    /// and falsely report every connected agent as "modified externally" — exactly the bug this
+-    /// fixes. Anchoring both write and inspect to the stable bundle path makes the comparison
+-    /// deterministic regardless of when the symlink appears. The symlink stays purely a convenience
+-    /// for a human typing `adrafinil` in a terminal; agents always invoke the real binary in place.
+-    static var hookCLIPath: String {
+-        bundledCLIPath ?? installedCLIPath ?? "adrafinil"
+-    }
+-
+-    /// The CLI binary inside the app bundle. It ships in `Contents/Helpers` — *not*
+-    /// `Contents/MacOS`, where a file named `adrafinil` collides case-insensitively with the
+-    /// app's own executable `Adrafinil` and shadows it (launching the app would run the CLI and
+-    /// immediately exit). Older layouts are kept as fallbacks.
+     static var bundledCLIPath: String? {
+-        let base = Bundle.main.bundlePath
+-        let candidates = [
+-            "\(base)/Contents/Helpers/adrafinil",
+-            "\(base)/Contents/MacOS/adrafinil",
+-            "\(base)/Contents/MacOS/AdrafinilCLI",
+-        ]
+-        return candidates.first { FileManager.default.fileExists(atPath: $0) }
+-    }
+-
+-    static func symlinkIfNeeded() async {
+-        guard let source = bundledCLIPath else {
+-            log.warning("CLI not found in app bundle")
+-            return
+-        }
+-        // Healthy only when the installed symlink resolves to THIS bundle's CLI. A link left
+-        // pointing at an old copy of the app (moved, renamed, replaced during an update) still
+-        // executes — the wrong build — and a dangling one doesn't execute at all; both repair.
+-        if let installed = installedCLIPath,
+-           (try? FileManager.default.destinationOfSymbolicLink(atPath: installed)) == source {
+-            return
+-        }
+-
+-        let primary = AdrafinilConstants.cliInstallPath
+-        if (try? symlink(from: source, to: primary)) != nil { return }
+-
+-        let fallback = AdrafinilConstants.cliFallbackInstallPath
+-        try? FileManager.default.createDirectory(
+-            atPath: (fallback as NSString).deletingLastPathComponent,
+-            withIntermediateDirectories: true,
+-        )
+-        try? symlink(from: source, to: fallback)
+-    }
+-
+-    private static func symlink(from source: String, to dest: String) throws {
+-        // Remove whatever occupies the destination. Checking existence first would skip a
+-        // DANGLING symlink — `fileExists` follows links and reports false — and the create below
+-        // would then throw EEXIST forever, leaving the broken link in place.
+-        try? FileManager.default.removeItem(atPath: dest)
+-        try FileManager.default.createSymbolicLink(atPath: dest, withDestinationPath: source)
+-        log.info("CLI symlinked to \(dest)")
++        Bundle.main.bundlePath + "/Contents/Helpers/adrafinil"
+     }
++    static var installedCLIPath: String? { bundledCLIPath }
++    static var hookCLIPath: String { bundledCLIPath! }
++    // The package provides bin/adrafinil; never write outside the Nix store.
++    static func symlinkIfNeeded() async {}
+ }
+diff --git a/Adrafinil/Installer/HelperInstaller.swift b/Adrafinil/Installer/HelperInstaller.swift
+index 51fcbc6..3ac95e2 100644
+--- a/Adrafinil/Installer/HelperInstaller.swift
++++ b/Adrafinil/Installer/HelperInstaller.swift
+@@ -1,176 +1,21 @@
+-import AdrafinilShared
+ import Foundation
+-import OSLog
+-import ServiceManagement
+ 
+-/// Registers the AdrafinilHelper LaunchDaemon and the AdrafinilDaemon LaunchAgent
+-/// via SMAppService. First launch triggers the system approval prompt; later launches
+-/// just verify status.
++// Service lifecycle belongs exclusively to nix-darwin, including removal and repair.
+ @MainActor
+ enum HelperInstaller {
+-    private static let log = Logger(subsystem: AdrafinilConstants.appBundleID, category: "HelperInstaller")
+-
+-    static var isFirstRun: Bool {
+-        !UserDefaults.standard.bool(forKey: "AdrafinilDidCompleteFirstRun")
+-    }
+-
+-    static func markFirstRunComplete() {
+-        UserDefaults.standard.set(true, forKey: "AdrafinilDidCompleteFirstRun")
+-    }
+-
+-    /// Clears the first-run flag so a later relaunch re-runs guided setup. Called by uninstall: once
+-    /// the services are unregistered and hooks/CLI removed, the app is back to a pristine state, so
+-    /// relaunching the bundle should walk Setup again rather than come up as a half-configured app.
+-    static func resetFirstRun() {
+-        UserDefaults.standard.removeObject(forKey: "AdrafinilDidCompleteFirstRun")
+-    }
+-
+-    /// Outcome of a registration attempt, surfaced to the installer UI.
++    static var isFirstRun: Bool { false }
++    static func markFirstRunComplete() {}
++    static func resetFirstRun() {}
+     enum RegistrationResult: Equatable {
+-        case enabled
+-        case pendingApproval
+-        case failed(String)
++        case enabled, pendingApproval, failed(String)
+     }
+-
+-    /// Outcome of a repair (`repairServices`).
+     enum RepairResult: Equatable {
+-        /// Both services re-registered and enabled — the daemon should come up. The caller still
+-        /// verifies it actually answers.
+-        case reregistered
+-        /// Re-registered, but the user must approve them in Login Items before they enable.
+-        case needsApproval
+-        /// Couldn't re-register — the records are wedged beyond what we can clear. The caller should
+-        /// guide the user to remove Adrafinil in Login Items manually.
+-        case failed(String)
++        case reregistered, needsApproval, failed(String)
+     }
+-
+-    /// Tears down our service registrations and registers them fresh, to recover an installation whose
+-    /// Background Task Management records got into a state launchd won't bring up (e.g. a stale or
+-    /// duplicated record left by a prior install, seen on first run when the agent never instantiates).
+-    /// Unregistering drops those records; the subsequent registration recreates them clean. If even
+-    /// this fails, the records are wedged beyond our reach and the user must remove Adrafinil in Login
+-    /// Items by hand (a targeted reset, not a system-wide `sfltool resetbtm`).
+     static func repairServices() async -> RepairResult {
+-        log.notice("repair: unregistering services to clear possibly-corrupt records")
+-        try? await SMAppService.agent(plistName: "LaunchAgent.plist").unregister()
+-        try? await SMAppService.daemon(plistName: "LaunchDaemon.plist").unregister()
+-        // The agent's parent is the app login item; re-register it too so the parent record is clean.
+-        try? await SMAppService.mainApp.unregister()
+-        try? await Task.sleep(for: .milliseconds(500))
+-
+-        let results = await installIfNeeded()
+-        let failures = results.compactMap { entry -> String? in
+-            if case let .failed(msg) = entry.result { "\(entry.name): \(msg)" } else { nil }
+-        }
+-        if !failures.isEmpty {
+-            log.error("repair: re-registration failed — \(failures.joined(separator: "; "), privacy: .public)")
+-            return .failed(failures.joined(separator: "; "))
+-        }
+-        if results.contains(where: { $0.result == .pendingApproval }) {
+-            log.notice("repair: re-registered, awaiting user approval")
+-            return .needsApproval
+-        }
+-        log.notice("repair: re-registered and enabled")
+-        return .reregistered
++        .failed("Background services are managed by nix-darwin. Rebuild your configuration to repair them.")
+     }
+-
+-    @discardableResult
+     static func installIfNeeded() async -> [(name: String, result: RegistrationResult)] {
+-        let helper = SMAppService.daemon(plistName: "LaunchDaemon.plist")
+-        let agent = SMAppService.agent(plistName: "LaunchAgent.plist")
+-
+-        let results = await [
+-            (name: "Helper", result: registerIfNeeded(service: helper, name: "Helper")),
+-            (name: "Daemon", result: registerIfNeeded(service: agent, name: "Daemon")),
+-        ]
+-
+-        // Register the menu-bar app itself as a login item so it's present after a reboot without
+-        // any manual step. `launchAtLogin` defaults to true, but its Settings toggle only registers
+-        // on *change* — so nothing ever enabled it on a fresh install. Setup is where we make it
+-        // real. (Users can still turn it off later in Settings, which unregisters it.)
+-        do {
+-            if SMAppService.mainApp.status != .enabled {
+-                try SMAppService.mainApp.register()
+-                log.notice("main app registered as login item")
+-            }
+-        } catch {
+-            log.error("main app login-item registration failed: \(error.localizedDescription, privacy: .public)")
+-        }
+-
+-        // Only consider first-run "done" if nothing hard-failed; a pending approval still
+-        // counts (the services are registered and enable once the user approves). A hard
+-        // failure leaves the flag clear so the setup flow re-presents on next launch.
+-        if !results.contains(where: { if case .failed = $0.result { true } else { false } }) {
+-            markFirstRunComplete()
+-        }
+-        return results
+-    }
+-
+-    private static func registerIfNeeded(service: SMAppService, name: String) async -> RegistrationResult {
+-        switch service.status {
+-        case .enabled:
+-            log.notice("\(name, privacy: .public) already enabled")
+-            return .enabled
+-        case .notRegistered, .notFound:
+-            return await register(service, name: name, allowRemediation: true)
+-        case .requiresApproval:
+-            log.notice("\(name, privacy: .public) requires user approval — opening Login Items")
+-            SMAppService.openSystemSettingsLoginItems()
+-            return .pendingApproval
+-        @unknown default:
+-            log.error("\(name, privacy: .public) in unknown SMAppService state")
+-            return .failed("unknown SMAppService state")
+-        }
+-    }
+-
+-    /// Registers `service`, recovering once from a collision with a stale Background Task Management
+-    /// record.
+-    ///
+-    /// `register()` can fail with `SMAppServiceErrorDomain` "Operation not permitted" when a prior
+-    /// install (or a half-completed approval) left a BTM record for the same item that the new
+-    /// registration collides with rather than replaces — observed on first launch when the agent and
+-    /// helper never come up. Clearing our own registration with `unregister()` and registering again
+-    /// replaces that record. This is best-effort and tried exactly once (`allowRemediation`), so a
+-    /// registration that's genuinely blocked still surfaces as `.failed` to the installer.
+-    private static func register(_ service: SMAppService, name: String, allowRemediation: Bool) async -> RegistrationResult {
+-        do {
+-            try service.register()
+-            log.notice("\(name, privacy: .public) registered — status now \(statusName(service.status), privacy: .public)")
+-            return service.status == .enabled ? .enabled : .pendingApproval
+-        } catch let error as NSError {
+-            log.error("\(name, privacy: .public) registration FAILED: domain=\(error.domain, privacy: .public) code=\(error.code, privacy: .public) desc=\(error.localizedDescription, privacy: .public)")
+-            guard allowRemediation else {
+-                return .failed("\(error.domain) \(error.code): \(error.localizedDescription)")
+-            }
+-            log.notice("\(name, privacy: .public) registration retry: unregistering a possibly-stale record, then re-registering")
+-            // Capture (don't swallow) an unregister failure: clearing the stale record is the whole
+-            // point of the retry, so if it fails it's the actionable root cause. Still attempt the
+-            // re-register — a benign "nothing was registered" shouldn't block a recovery that would
+-            // otherwise succeed — but if that retry also fails, surface the unregister failure rather
+-            // than the repeat collision it would otherwise report.
+-            var unregisterFailure: String?
+-            do {
+-                try await service.unregister()
+-            } catch let unregError as NSError {
+-                unregisterFailure = "\(unregError.domain) \(unregError.code): \(unregError.localizedDescription)"
+-                log.error("\(name, privacy: .public) unregister during remediation FAILED: \(unregisterFailure ?? "", privacy: .public)")
+-            }
+-            try? await Task.sleep(for: .milliseconds(300))
+-            let result = await register(service, name: name, allowRemediation: false)
+-            if case let .failed(retryMessage) = result, let unregisterFailure {
+-                return .failed("couldn't clear a stale registration (\(unregisterFailure)); re-registering then failed: \(retryMessage)")
+-            }
+-            return result
+-        }
+-    }
+-
+-    private static func statusName(_ status: SMAppService.Status) -> String {
+-        switch status {
+-        case .enabled: "enabled"
+-        case .requiresApproval: "requiresApproval"
+-        case .notRegistered: "notRegistered"
+-        case .notFound: "notFound"
+-        @unknown default: "unknown"
+-        }
++        [(name: "nix-darwin", result: .failed("Enable programs.adrafinil.enable in your Darwin configuration."))]
+     }
+ }
+diff --git a/Adrafinil/Settings/SettingsView.swift b/Adrafinil/Settings/SettingsView.swift
+index e14ffa8..1a5bc07 100644
+--- a/Adrafinil/Settings/SettingsView.swift
++++ b/Adrafinil/Settings/SettingsView.swift
+@@ -1,8 +1,6 @@
+ import AdrafinilShared
+ import AppKit
+-import Digoxin
+ import Propofol
+-import ServiceManagement
+ import SwiftUI
+ 
+ struct SettingsView: View {
+@@ -42,8 +40,7 @@ struct SettingsView: View {
+                 .tag(SettingsTab.about)
+         }
+         // Single source of truth: every tab edits this one binding. Persist and propagate
+-        // centrally so one tab's save can't clobber a field another tab just changed, and
+-        // re-register the login item only when that specific toggle flips.
++        // centrally so one tab's save can't clobber a field another tab just changed.
+         .onChange(of: appSettings) { old, new in
+             // Persist immediately — it's a small local write and must never be lost if the window
+             // closes mid-edit.
+@@ -53,41 +50,6 @@ struct SettingsView: View {
+             if !old.showInMenuBar, new.showInMenuBar {
+                 AppDelegate.shared?.closeMenuWindow()
+             }
+-            if old.launchAtLogin != new.launchAtLogin {
+-                Task {
+-                    if new.launchAtLogin {
+-                        try? SMAppService.mainApp.register()
+-                        // Verify, and reflect reality back into the toggle — a silently-failed
+-                        // registration would show "on" while the app never returns after reboot.
+-                        if SMAppService.mainApp.status != .enabled {
+-                            appSettings.launchAtLogin = false
+-                        }
+-                    } else {
+-                        try? await SMAppService.mainApp.unregister()
+-                    }
+-                }
+-            }
+-            // Flipping the background-shell opt-in applies or removes its `PreToolUse`(Bash) hook for
+-            // every connected, capable agent. It's a separate install path (not the core hook set),
+-            // so this touches only that one handler. On enable we gate on the agent being connected —
+-            // a background hook without the core session hooks would keep-awake for an agent the user
+-            // hasn't turned on; on disable we strip from all supported agents regardless (a no-op when
+-            // absent). Reconnects re-apply it via `LiveAgentHooksProvider.install`.
+-            if old.keepAwakeForBackgroundBash != new.keepAwakeForBackgroundBash {
+-                for kind in agentHooks.detectedAgents() where agentHooks.backgroundHoldSupported(for: kind) {
+-                    if new.keepAwakeForBackgroundBash {
+-                        if agentHooks.installState(for: kind) == .installed {
+-                            try? agentHooks.installBackgroundHold(for: kind)
+-                        }
+-                    } else {
+-                        try? agentHooks.uninstallBackgroundHold(for: kind)
+-                    }
+-                }
+-            }
+-            // Auto-install starts or stops the background update loop in-process; no daemon involved.
+-            if old.autoInstallUpdates != new.autoInstallUpdates {
+-                SilentUpdates.shared.setAutoInstall(new.autoInstallUpdates)
+-            }
+             // Debounce the daemon reload so a slider drag doesn't fire a cross-process reload (and a
+             // daemon-side disk re-read) on every intermediate value.
+             reloadTask?.cancel()
+@@ -110,12 +72,6 @@ struct GeneralSettingsTab: View {
+     var setup: any SetupProviding = LiveSetupProvider()
+     var device: DeviceCapabilities = .current
+ 
+-    @State private var showUninstallConfirm = false
+-    @State private var uninstallIssues: [String] = []
+-    @State private var showUninstallIssues = false
+-    /// The updater — one check loop answers both the "Check for Updates" row and the Update Now
+-    /// button, whichever mode the auto-install toggle has it in.
+-    @State private var installer = SilentUpdates.shared
+     /// Whether the user has denied notification permission — the away recap is silently dark
+     /// then, and this is the one place that says so.
+     @State private var notificationsDenied = false
+@@ -171,7 +127,7 @@ struct GeneralSettingsTab: View {
+     var body: some View {
+         Form {
+             Section {
+-                Toggle("Launch at login", isOn: $settings.launchAtLogin)
++                Text("Launch at login is managed by programs.adrafinil.enable.")
+                 Toggle("Show in menu bar", isOn: $settings.showInMenuBar)
+             } footer: {
+                 VStack(alignment: .leading, spacing: 6) {
+@@ -257,126 +213,13 @@ struct GeneralSettingsTab: View {
+                 }
+             }
+ 
+-            Section {
+-                Toggle("Install updates automatically", isOn: $settings.autoInstallUpdates)
+-                updateActionRow
+-            } header: {
+-                Text("Updates")
+-            } footer: {
+-                VStack(alignment: .leading, spacing: 6) {
+-                    Text(updatesFooter)
+-                    if case let .failed(message) = installer.manualPhase {
+-                        Text("\(message) [Releases page.](https://github.com/kageroumado/adrafinil/releases)")
+-                            .foregroundStyle(.red)
+-                            .tint(Theme.awake)
+-                    }
+-                }
+-            }
+-
+-            GeneralUsageSection()
+-
+-            Section {
+-                Button("Uninstall and quit…", role: .destructive) { showUninstallConfirm = true }
+-                    // `.bordered` renders a destructive role as plain gray on macOS — prominent +
+-                    // red tint is what actually reads as "this deletes things".
+-                    .buttonStyle(.borderedProminent)
+-                    .tint(.red)
+-                    .focusEffectDisabled()
+-            } footer: {
+-                Text("Disconnects Adrafinil from every agent, turns off its background services, removes the adrafinil command, and deletes its settings — then quits.")
++            Section("Managed by Nix") {
++                Text("Updates, login services, CLI installation and removal are managed by your nix-darwin configuration.")
++                Text("Usage counting and crash reporting are disabled in this build.")
+             }
+         }
+         .formStyle(.grouped)
+         .task { notificationsDenied = await AwayNotifier.shared.authorizationDenied() }
+-        .task { installer.refresh() }
+-        .alert("Uninstall Adrafinil?", isPresented: $showUninstallConfirm) {
+-            Button("Uninstall and Quit", role: .destructive) { performUninstall() }
+-            Button("Cancel", role: .cancel) {}
+-        } message: {
+-            Text("This disconnects Adrafinil from all your agents, turns off its background services, and removes the adrafinil command and its settings. This can't be undone.")
+-        }
+-        .alert("Some hooks need manual cleanup", isPresented: $showUninstallIssues) {
+-            Button("Quit Anyway") { exit(0) }
+-        } message: {
+-            Text("Adrafinil couldn't clean up everywhere — remove these by hand, or the agent will keep calling a command that no longer exists:\n\n\(uninstallIssues.joined(separator: "\n"))")
+-        }
+-    }
+-
+-    /// The action row under the auto-install toggle: an Update Now + What's New pair when a newer
+-    /// version is known (found by the notify check or already downloaded by the silent path), a
+-    /// plain manual check otherwise.
+-    @ViewBuilder
+-    private var updateActionRow: some View {
+-        if let version = installer.availableVersion ?? installer.pendingVersion {
+-            HStack(spacing: Theme.Space.sm) {
+-                Button {
+-                    Task { await installer.updateNow() }
+-                } label: {
+-                    HStack(spacing: Theme.Space.sm) {
+-                        if installer.manualPhase == .working {
+-                            ProgressView().controlSize(.small)
+-                        }
+-                        Text(installer.manualPhase == .working ? "Updating…" : "Update to \(version) Now")
+-                    }
+-                }
+-                .buttonStyle(.borderedProminent)
+-                .disabled(installer.manualPhase == .working)
+-
+-                Button("What's New…") {
+-                    AppDelegate.shared?.presentWhatsNew(
+-                        version: version,
+-                        context: .updateAvailable(autoInstall: settings.autoInstallUpdates),
+-                    )
+-                }
+-                .buttonStyle(.bordered)
+-            }
+-            .focusEffectDisabled()
+-        } else {
+-            Button {
+-                Task { await installer.checkForUpdates() }
+-            } label: {
+-                HStack(spacing: Theme.Space.sm) {
+-                    if installer.isChecking {
+-                        ProgressView().controlSize(.small)
+-                    }
+-                    Text(checkButtonTitle)
+-                }
+-            }
+-            .buttonStyle(.bordered)
+-            .disabled(installer.isChecking)
+-            .focusEffectDisabled()
+-        }
+-    }
+-
+-    private var updatesFooter: String {
+-        if settings.autoInstallUpdates {
+-            if let pending = installer.pendingVersion {
+-                return String(localized: "Version \(pending) is downloaded and verified — it installs at a quiet moment, when your Mac is idle and no agents are being kept awake.")
+-            }
+-            return String(localized: "Adrafinil checks GitHub Releases every few hours and verifies every download's code signature. Updates install themselves when your Mac is idle and no agents are being kept awake — or right away with Update Now.")
+-        }
+-        return String(localized: "Adrafinil checks GitHub Releases every few hours and tells you here and in the menu when a new version is out. Nothing downloads or installs until you choose Update Now.")
+-    }
+-
+-    private var checkButtonTitle: String {
+-        if installer.isChecking { return String(localized: "Checking for updates…") }
+-        if installer.checkedUpToDate { return String(localized: "You're up to date") }
+-        return String(localized: "Check for updates")
+-    }
+-
+-    private func performUninstall() {
+-        Task {
+-            let issues = await setup.uninstallEverything()
+-            // Everything is already torn down (the sleep block was released first), so exit the process
+-            // directly. Routing through `NSApp.terminate` would hit the quit gate, which tries to reach
+-            // the daemon we just unregistered — with no daemon to answer, that wedges the quit.
+-            guard issues.isEmpty else {
+-                uninstallIssues = issues
+-                showUninstallIssues = true
+-                return
+-            }
+-            exit(0)
+-        }
+     }
+ }
+ 
+@@ -384,61 +227,6 @@ struct GeneralSettingsTab: View {
+ 
+ /// Whether this Mac is counted among Adrafinil's users, what that sends, and whether Adrafinil's
+ /// own crashes are reported.
+-private struct GeneralUsageSection: View {
+-    @State private var tier = ConsentTier.off
+-    @State private var status: DigoxinStatus = .off
+-    @State private var activeCount: Int?
+-
+-    var body: some View {
+-        Section {
+-            Picker("Count this Mac", selection: $tier) {
+-                Text("Off").tag(ConsentTier.off)
+-                Text("Counting").tag(ConsentTier.counting)
+-                Text("Counting and crash reports").tag(ConsentTier.crashReports)
+-            }
+-            .onChange(of: tier) { _, tier in
+-                // Reading the stored choice in the task below lands here too.
+-                guard UsageCounting.tier != tier else { return }
+-                UsageCounting.choose(tier)
+-                Task { await refreshStatus() }
+-            }
+-        } header: {
+-            Text("Count this Mac")
+-        } footer: {
+-            VStack(alignment: .leading, spacing: 6) {
+-                Text("Counts how many people use Adrafinil. On each day you use it, one anonymous check-in is sent:")
+-                Text("• Adrafinil and macOS versions\n• chip family and memory size\n• language and the date\n• how many of the last 7 days you used it\n• whether this Mac has a lid\n• how many kinds of agent it kept awake in the last week")
+-                Text("It never includes which agents you run or what you work on, and nothing in it names you.")
+-                Text("Crash reports adds a report when Adrafinil itself crashes, with your name, your Mac’s name and folder paths removed. Turning this off deletes everything this Mac sent.")
+-                if let line = statusLine {
+-                    Text(line)
+-                }
+-                if let activeCount {
+-                    Text("Yesterday, \(activeCount) Macs counted themselves in.")
+-                }
+-            }
+-        }
+-        .task {
+-            tier = UsageCounting.tier ?? .off
+-            await refreshStatus()
+-            activeCount = await ActiveCount.shared.value()
+-        }
+-    }
+-
+-    private var statusLine: String? {
+-        switch status {
+-        case .deletionPending: String(localized: "Deleting what this Mac sent…")
+-        case .secureEnclaveUnavailable: String(localized: "This Mac has no Secure Enclave, so nothing is sent.")
+-        case let .failing(reason): String(localized: "Not sent yet: \(reason)")
+-        case .off, .waiting, .registered: nil
+-        }
+-    }
+-
+-    private func refreshStatus() async {
+-        status = await UsageCounting.client.status
+-    }
+-}
+-
+ // MARK: - Agents tab
+ 
+ struct AgentsSettingsTab: View {
+@@ -453,25 +241,17 @@ struct AgentsSettingsTab: View {
+                     Text("No supported agents detected.")
+                         .foregroundStyle(.secondary)
+                 } else {
+-                    ForEach($agentRows) { $row in
+-                        AgentInstallRow(model: $row, agentHooks: agentHooks) { refreshRows() }
++                    ForEach(agentRows) { row in
++                        LabeledContent(row.kind.displayName) {
++                            Text(row.installState == .installed ? "Configured" : "Not configured")
++                                .foregroundStyle(.secondary)
++                        }
+                     }
+                 }
+             } header: {
+                 Text("Your agents")
+             } footer: {
+-                Text("Turn an agent on and Adrafinil keeps your Mac awake while it's working, then lets it sleep again when the agent stops. Turn it off to disconnect. Some agents can also keep your Mac awake on their own — that adds Adrafinil as an MCP tool they can call.")
+-            }
+-
+-            Section {
+-                Button("Open setup again…") {
+-                    AppDelegate.shared?.presentInstaller()
+-                }
+-                // Keep this out of the form's initial focus: as the only plain button it otherwise
+-                // lands the first-responder ring, making a secondary utility read as the main action.
+-                .focusEffectDisabled()
+-            } footer: {
+-                Text("Reopens the guided setup. Use it to connect a new agent, or to fix one that shows “Needs reconnect”.")
++                Text("Configure hooks and the MCP server through your Nix or Home Manager configuration. The snippets below can help; this build never rewrites agent configuration files.")
+             }
+ 
+             // For agents Adrafinil has no built-in integration for: type a name, copy the snippets.
+diff --git a/AdrafinilShared/Sources/AdrafinilShared/Installer/HookInstaller.swift b/AdrafinilShared/Sources/AdrafinilShared/Installer/HookInstaller.swift
+index 6eaf6d8..043a807 100644
+--- a/AdrafinilShared/Sources/AdrafinilShared/Installer/HookInstaller.swift
++++ b/AdrafinilShared/Sources/AdrafinilShared/Installer/HookInstaller.swift
+@@ -56,9 +56,7 @@ public struct HookInstaller {
+     }
+ 
+     public func install(for agent: AgentKind, dryRun: Bool) throws -> InstallResult {
+-        let integration = AgentIntegrations.integration(for: agent)
+-        guard integration.isDetected(context) else { throw SkipReason.notInstalled }
+-        return try integration.install(context, dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// Removes Adrafinil hook entries for `agent`.
+@@ -67,7 +65,7 @@ public struct HookInstaller {
+     /// `InstallResult` describing the diff without writing anything to disk.
+     @discardableResult
+     public func uninstall(for agent: AgentKind, dryRun: Bool = false) throws -> InstallResult {
+-        try AgentIntegrations.integration(for: agent).uninstall(context, dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// Returns a list of agents currently detected on the system.
+@@ -102,19 +100,13 @@ public struct HookInstaller {
+     /// Throws `SkipReason.unsupportedHere` if the agent has no verified MCP support.
+     @discardableResult
+     public func installMCP(for agent: AgentKind, dryRun: Bool = false) throws -> InstallResult {
+-        guard let shape = AgentIntegrations.integration(for: agent).mcpShape(context) else {
+-            throw SkipReason.unsupportedHere("MCP not supported for \(agent.rawValue)")
+-        }
+-        return try shape.install(dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// Removes Adrafinil's MCP server from `agent`'s config. A no-op for agents without MCP support.
+     @discardableResult
+     public func uninstallMCP(for agent: AgentKind, dryRun: Bool = false) throws -> InstallResult {
+-        guard let shape = AgentIntegrations.integration(for: agent).mcpShape(context) else {
+-            return InstallResult(summary: "nothing to remove", diff: "(unchanged)")
+-        }
+-        return try shape.uninstall(dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// MCP registration state for `agent` (mirrors `installState`). `.notInstalled` when the agent
+@@ -135,19 +127,13 @@ public struct HookInstaller {
+     /// `SkipReason.unsupportedHere` for an agent without a background-shell signal.
+     @discardableResult
+     public func installBackgroundHold(for agent: AgentKind, dryRun: Bool = false) throws -> InstallResult {
+-        guard let shape = AgentIntegrations.integration(for: agent).backgroundBashShape(context) else {
+-            throw SkipReason.unsupportedHere("Background-shell keep-awake not supported for \(agent.rawValue)")
+-        }
+-        return try shape.install(dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// Removes the background-shell hook from `agent`'s config. A no-op for agents without support.
+     @discardableResult
+     public func uninstallBackgroundHold(for agent: AgentKind, dryRun: Bool = false) throws -> InstallResult {
+-        guard let shape = AgentIntegrations.integration(for: agent).backgroundBashShape(context) else {
+-            return InstallResult(summary: "nothing to remove", diff: "(unchanged)")
+-        }
+-        return try shape.uninstall(dryRun: dryRun)
++        throw SkipReason.unsupportedHere("Agent hooks and MCP configuration are managed declaratively in this Nix build.")
+     }
+ 
+     /// Background-shell hook state for `agent` (mirrors `installState`). `.notInstalled` when the
+diff --git a/AdrafinilShared/Sources/AdrafinilShared/Models/AdrafinilSettings.swift b/AdrafinilShared/Sources/AdrafinilShared/Models/AdrafinilSettings.swift
+index 19ac010..870c565 100644
+--- a/AdrafinilShared/Sources/AdrafinilShared/Models/AdrafinilSettings.swift
++++ b/AdrafinilShared/Sources/AdrafinilShared/Models/AdrafinilSettings.swift
+@@ -79,14 +79,14 @@ public struct AdrafinilSettings: Codable, Sendable, Equatable {
+     /// separately-installed, default-OFF opt-in. Claude Code only for now (see `BackgroundBashHold`).
+     public var keepAwakeForBackgroundBash: Bool = false
+ 
+-    public var launchAtLogin: Bool = true
++    public var launchAtLogin: Bool = false
+     public var showInMenuBar: Bool = true
+ 
+     /// Download and install app updates automatically, at a moment when the Mac is idle and no
+     /// agents are being kept awake. When off, Adrafinil still checks GitHub Releases daily and
+     /// surfaces "update available" in the menu and Settings — installing waits for the user's
+     /// explicit Update Now.
+-    public var autoInstallUpdates: Bool = true
++    public var autoInstallUpdates: Bool = false
+ 
+     public init() {}
+ 
+@@ -163,9 +163,9 @@ public struct AdrafinilSettings: Codable, Sendable, Equatable {
+         self.agentHoldsEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .agentHoldsEnabled)) ?? d.agentHoldsEnabled
+         self.manualHoldMaxHours = (try? c.decodeIfPresent(Double.self, forKey: .manualHoldMaxHours)) ?? d.manualHoldMaxHours
+         self.keepAwakeForBackgroundBash = (try? c.decodeIfPresent(Bool.self, forKey: .keepAwakeForBackgroundBash)) ?? d.keepAwakeForBackgroundBash
+-        self.launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
++        self.launchAtLogin = false
+         self.showInMenuBar = (try? c.decodeIfPresent(Bool.self, forKey: .showInMenuBar)) ?? d.showInMenuBar
+-        self.autoInstallUpdates = (try? c.decodeIfPresent(Bool.self, forKey: .autoInstallUpdates)) ?? d.autoInstallUpdates
++        self.autoInstallUpdates = false
+         clampToSupportedRanges()
+     }
+ 
