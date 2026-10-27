@@ -16,11 +16,11 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "5.0.1";
+  version = "5.0.2";
 
   src = fetchurl {
     url = "https://updates.getcleanshot.com/v3/CleanShot-X-${finalAttrs.version}.dmg";
-    hash = "sha256-hauVyKS+T7ZQqU7Ah6fn2J9Oa9qcGGEc3USraj7bHPE=";
+    hash = "sha256-nwpmHbr07TBE5QdCUObwFCtwTgR6m9TSPTUjbpj8pdY=";
   };
 
   nativeBuildInputs = [
