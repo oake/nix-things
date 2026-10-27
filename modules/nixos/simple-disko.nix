@@ -240,10 +240,7 @@ in
                 ];
               };
             }
-            (lib.mkIf (!config.boot.initrd.systemd.enable) {
-              boot.initrd.postResumeCommands = lib.mkAfter wipeScript;
-            })
-            (lib.mkIf config.boot.initrd.systemd.enable {
+            {
               boot.initrd.systemd.services."impermanence-wipe" = {
                 description = "Impermanence Btrfs root rollback";
                 wantedBy = [ "initrd.target" ];
@@ -252,7 +249,7 @@ in
                 serviceConfig.Type = "oneshot";
                 script = wipeScript;
               };
-            })
+            }
           ]
         ))
       ]
