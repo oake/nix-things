@@ -5,8 +5,8 @@ pkgs.buildDotnetModule {
   src = pkgs.fetchFromGitHub {
     owner = "maeve-oake";
     repo = "beesly";
-    rev = "fc5532022c010883bd2216941c51871a1ab599ca";
-    hash = "sha256-GBBgWW0jfbzL9SYp09NTJzVlaCEs4PBdXKpdFP6Sd8M=";
+    rev = "67101892b8a5388c03f9407d6fc513f94b9c7359";
+    hash = "sha256-nE3fI5VgrlA+wsAPPSjyY3htgiaJ5ShLcypFHRGMPF4=";
   };
   projectFile = "beesly.csproj";
   nugetDeps = ./deps.json;
