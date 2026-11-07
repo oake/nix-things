@@ -13,6 +13,13 @@ in
 
     package = lib.mkPackageOption pkgs "steam-lancache-beacon" { };
 
+    user = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "maeve";
+      description = "Restrict the user service to this user with ConditionUser. When unset, it runs for all users.";
+    };
+
     baseUrl = lib.mkOption {
       type = lib.types.str;
       example = "https://lancache.lan.al";
@@ -42,6 +49,9 @@ in
       unitConfig = {
         StartLimitIntervalSec = "10min";
         StartLimitBurst = 4;
+      }
+      // lib.optionalAttrs (cfg.user != null) {
+        ConditionUser = cfg.user;
       };
       serviceConfig = {
         Type = "oneshot";
