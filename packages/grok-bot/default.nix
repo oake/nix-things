@@ -11,7 +11,7 @@ let
     dpkg
     autoPatchelfHook
     makeShellWrapper
-    electron_42
+    electron_43
     addDriverRunpath
     xdg-utils
     ;
@@ -73,7 +73,7 @@ stdenv.mkDerivation {
   '';
 
   preFixup = ''
-    makeShellWrapper ${lib.getExe electron_42} "$out/bin/grok-bot" \
+    makeShellWrapper ${lib.getExe electron_43} "$out/bin/grok-bot" \
       --add-flags "$out/share/grok-bot/app.asar" \
       --add-flags --class=grok-bot \
       --add-flags --name=grok-bot \
@@ -90,7 +90,7 @@ stdenv.mkDerivation {
   passthru = {
     inherit (sourcesJson) commitSha;
     sources = sourcesJson.sources;
-    electron = electron_42;
+    electron = electron_43;
     updateScript = ./update.sh;
   };
 
