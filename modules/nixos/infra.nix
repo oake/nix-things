@@ -24,7 +24,7 @@ let
     ${lib.optionalString (cfg.hub.githubTokenFile != null) ''
       export GITHUB_TOKEN="$(cat "$CREDENTIALS_DIRECTORY/github-token")"
     ''}
-    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort} -dix ${pkgs.dix-snapshots}/bin/dix -oai-base-url ${lib.escapeShellArg cfg.hub.oaiBaseUrl} ${
+    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort} -oai-base-url ${lib.escapeShellArg cfg.hub.oaiBaseUrl} ${
       lib.optionalString (
         cfg.hub.oaiTokenFile != null
       ) ''-oai-token-file "$CREDENTIALS_DIRECTORY/oai-token"''
@@ -184,7 +184,10 @@ in
       users.groups.infra-hub = { };
       systemd.services.infra-hub = {
         wantedBy = [ "multi-user.target" ];
-        path = [ pkgs.git ];
+        path = [
+          pkgs.git
+          pkgs.dix
+        ];
         environment.GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
         after = [ "network.target" ];
         serviceConfig = {
