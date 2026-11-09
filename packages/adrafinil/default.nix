@@ -4,7 +4,7 @@
 }:
 let
   inherit (pkgs) lib;
-  version = "1.13.1";
+  version = "1.14.1";
   propofol = pkgs.fetchFromGitHub {
     owner = "kageroumado";
     repo = "propofol";
@@ -17,8 +17,8 @@ pkgs.stdenv.mkDerivation {
   src = pkgs.fetchFromGitHub {
     owner = "kageroumado";
     repo = "adrafinil";
-    rev = "b81316d70117f808ea01b9d0c755115a1f031376"; # v1.13.1
-    hash = "sha256-VbZruj4Yd5nY+SN0JZN24gdzPUmGyzI9eiJMm5GYiVg=";
+    tag = "v${version}";
+    hash = "sha256-FAOq8TteaBHcv2znttjGaQFRS1gIOMUZwaA+cwchfhM=";
   };
 
   patches = [
@@ -27,7 +27,10 @@ pkgs.stdenv.mkDerivation {
   ];
 
   nativeBuildInputs = with pkgs; [
-    swift
+    (swift.override {
+      enableRepl = false;
+      enableSourceKitLSP = false;
+    })
     swiftpm
     python3
     rcodesign
@@ -36,6 +39,13 @@ pkgs.stdenv.mkDerivation {
   ];
   buildInputs = [ pkgs.apple-sdk_26 ];
   env.MACOSX_DEPLOYMENT_TARGET = "26.4";
+  # Swift propagates SDK 27, whose SwiftUI macros are unavailable here.
+  swiftpmFlags = [
+    "--build-system"
+    "native"
+    "--sdk"
+    pkgs.apple-sdk_26.sdkroot
+  ];
 
   postPatch = ''
     cp ${./Package.swift} Package.swift

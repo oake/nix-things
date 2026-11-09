@@ -190,10 +190,9 @@ index c1e1bb7..c60f82d 100644
  }
  
 diff --git a/Adrafinil/App/SilentUpdates.swift b/Adrafinil/App/SilentUpdates.swift
-index 1303232..ceda9b0 100644
 --- a/Adrafinil/App/SilentUpdates.swift
 +++ b/Adrafinil/App/SilentUpdates.swift
-@@ -1,278 +1,27 @@
+@@ -1,274 +1,27 @@
 -import AdrafinilShared
 -import AppKit
  import Foundation
@@ -250,28 +249,40 @@ index 1303232..ceda9b0 100644
 -        case idle
 -        case working
 -        case failed(String)
--    }
--
 +    enum ManualPhase: Equatable { case idle, working, failed(String) }
-     private(set) var manualPhase: ManualPhase = .idle
++    private(set) var manualPhase: ManualPhase = .idle
++    private(set) var availableVersion: String?
++    private(set) var pendingVersion: String?
++    private(set) var justUpdatedVersion: String?
++    private(set) var isChecking = false
++    private(set) var checkedUpToDate = false
++    func start(autoInstall: Bool) {}
++    func setAutoInstall(_ enabled: Bool) {}
++    func refresh() {}
++    func checkForUpdates() async {}
++    func checkIfStale() {}
++    func updateNow() async {
++        manualPhase = .failed("Updates are managed by Nix. Update your flake input and rebuild.")
+     }
+-
+-    private(set) var manualPhase: ManualPhase = .idle
 -
 -    /// The newest published version when it is newer than the running app, from the check loop —
 -    /// in both modes, downloaded or not. Refreshed by ``refresh()`` — Tiptoe itself is not
 -    /// observable.
-     private(set) var availableVersion: String?
+-    private(set) var availableVersion: String?
 -
 -    /// The version the automatic path has downloaded and is holding for a quiet moment, if any.
 -    /// A stronger claim than ``availableVersion`` (downloaded and verified, not merely published);
 -    /// refreshed by ``refresh()``.
-     private(set) var pendingVersion: String?
+-    private(set) var pendingVersion: String?
 -
 -    /// True while a user-initiated check is in flight (drives the Settings button's state).
-+    private(set) var justUpdatedVersion: String?
-     private(set) var isChecking = false
+-    private(set) var isChecking = false
 -
 -    /// Set after a manual check that found no newer version, so the button can briefly confirm
 -    /// "You're up to date". Reset when a new check starts.
-     private(set) var checkedUpToDate = false
+-    private(set) var checkedUpToDate = false
 -
 -    /// The version a silent (or manual) install brought us to, until the user has seen the
 -    /// "what's new" notice. Read from Tiptoe's store at launch; cleared by ``acknowledgeUpdate()``.
@@ -279,7 +290,8 @@ index 1303232..ceda9b0 100644
 -
 -    /// The one long-lived updater: daily check loop, `availableVersion`, and the quiet-moment
 -    /// install when the mode allows it. Created up front so its `Tiptoe` reconciles the recorded
--    /// wait (and surfaces `justUpdatedTo`) even before `start()`.
+-    /// wait and the post-update notice against the running bundle (a notice that outlived its
+-    /// version is dropped) even before `start()`.
 -    @ObservationIgnored private let github: TiptoeGitHub
 -    @ObservationIgnored private let log = Logger(
 -        subsystem: AdrafinilConstants.appBundleID, category: "SilentUpdates",
@@ -304,11 +316,7 @@ index 1303232..ceda9b0 100644
 -        github.onChecksFailing = { [log] error in
 -            log.error("update checks have been failing: \(error.localizedDescription, privacy: .public)")
 -        }
--        justUpdatedVersion = PostUpdateNotice.reconcile(
--            recordedVersion: github.tiptoe.justUpdatedTo,
--            runningVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
--            acknowledge: { github.tiptoe.acknowledge() },
--        )
+-        justUpdatedVersion = github.tiptoe.justUpdatedTo
 -    }
 -
 -    // MARK: - The check loop
@@ -404,27 +412,21 @@ index 1303232..ceda9b0 100644
 -    /// so no quiet moment is waited out and no gate is consulted. On success the app relaunches
 -    /// and this never returns to its caller in a meaningful way; still running a few seconds
 -    /// later means the attempt failed and `manualPhase` says so.
-+    func start(autoInstall: Bool) {}
-+    func setAutoInstall(_ enabled: Bool) {}
-+    func refresh() {}
-+    func checkForUpdates() async {}
-+    func checkIfStale() {}
-     func updateNow() async {
+-    func updateNow() async {
 -        guard manualPhase != .working else { return }
 -        #if DEBUG
 -            manualPhase = .failed(String(localized: "In-place updating is disabled in development builds."))
 -        #else
 -            manualPhase = .working
 -
--            // Ask GitHub first. With automatic installs on, the DMG the loop downloaded may be
--            // days old and one release behind, and `github.updateNow()` installs what it holds
--            // as it stands; this check replaces a stale download with the newest release. With
--            // installs off it only refreshes `availableVersion`, and `updateNow()` downloads
--            // the newest itself.
--            await check()
+-            // `github.updateNow()` asks GitHub itself and replaces a download that fell behind,
+-            // but answers a press during a running check with whatever is already held — with
+-            // auto-install off, nothing. So a check this object started finishes first.
+-            await checkInFlight?.value
 -
--            // Installs the DMG the automatic path holds, or downloads and verifies one
--            // now — `false` means there was nothing newer or the download couldn't be prepared.
+-            // Installs the newest release, reusing the DMG the automatic path holds when it is
+-            // still the newest — `false` means there was nothing newer or the download couldn't
+-            // be prepared.
 -            guard await github.updateNow() else {
 -                // `availableVersion` is set only by a check that reached GitHub and found an
 -                // installable DMG; without it there is nothing to download, whatever the network.
@@ -443,8 +445,7 @@ index 1303232..ceda9b0 100644
 -            refresh()
 -            manualPhase = .failed(String(localized: "The update couldn't be installed. Try again, or get it from the releases page."))
 -        #endif
-+        manualPhase = .failed("Updates are managed by Nix. Update your flake input and rebuild.")
-     }
+-    }
 -
 -    /// The user has seen the post-update notice.
 -    func acknowledgeUpdate() {
