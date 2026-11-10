@@ -24,7 +24,10 @@ in
 
   config = lib.mkMerge [
     {
-      programs._1password-gui.polkitPolicyOwners = [ config.me.username ];
+      programs._1password-gui.polkitPolicyOwners = [
+        "anna"
+        "maeve"
+      ];
     }
     (lib.mkIf cfg.autostart.enable {
       environment.etc."xdg/autostart/1password.desktop".source =
