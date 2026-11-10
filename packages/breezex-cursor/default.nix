@@ -6,10 +6,9 @@ let
   inherit (pkgs)
     stdenvNoCC
     fetchFromGitHub
-    fetchzip
-    clickgen
     nix-update-script
     lib
+    python3Minimal
     ;
   version = "2.0.1";
 in
@@ -23,35 +22,31 @@ stdenvNoCC.mkDerivation {
     hash = "sha256-P9LgQb3msq6YydK5RIk5yykUd9SL2GQbC4aH4F8LUF0=";
   };
 
-  nativeBuildInputs = [ clickgen ];
+  strictDeps = true;
 
-  bitmaps = fetchzip {
-    url = "https://github.com/ful1e5/BreezeX_Cursor/releases/download/v2.0.1/bitmaps.zip";
-    hash = "sha256-JncEE+G4tPgcLgabe/dD7DOVMLOWCI7e+3VdmXuZSo8=";
-  };
+  nativeBuildInputs = [ python3Minimal ];
 
-  buildPhase = ''
-    runHook preBuild
-    ctgen configs/x.build.toml -p x11 -d "$bitmaps/BreezeX-Dark" -n "BreezeX-Dark" -c "Extended KDE Dark (v2.0.1)"
-    ctgen configs/x.build.toml -p x11 -d "$bitmaps/BreezeX-Black" -n "BreezeX-Black" -c "Extended KDE Black (v2.0.1)"
-    ctgen configs/x.build.toml -p x11 -d "$bitmaps/BreezeX-Light" -n "BreezeX-Light" -c "Extended KDE Light (v2.0.1)"
-    runHook postBuild
-  '';
+  dontConfigure = true;
+  dontBuild = true;
 
   installPhase = ''
     runHook preInstall
-    install -dm 0755 $out/share/icons
-    cp -rf themes/* $out/share/icons/
+
+    install -dm 0755 "$out/share/icons"
+    python3 ${./scalable.py} "$src" "$out/share/icons/BreezeX-Black"
+
     runHook postInstall
   '';
+
+  disallowedReferences = [ python3Minimal ];
 
   passthru.updateScript = nix-update-script { };
 
   meta = {
-    description = "Extended KDE cursor theme, inspired by KDE Breeze";
+    description = "BreezeX black cursor theme as GNOME SVG cursors";
     homepage = "https://github.com/ful1e5/BreezeX_Cursor";
     license = lib.licenses.gpl3;
     maintainers = with lib.maintainers; [ pagedMov ];
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.unix;
   };
 }
