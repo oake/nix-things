@@ -9,19 +9,19 @@ let
     buildGoModule
     buildNpmPackage
     ;
-  version = "0.70.0";
+  version = "0-unstable-2026-11-11";
   src = fetchFromGitHub {
-    owner = "smart-mcp-proxy";
+    owner = "slopster67";
     repo = "mcpproxy-go";
-    tag = "v${version}";
-    hash = "sha256-sVSqSr87F88D3pwyqQ4eP9zKkftwsI1ytt82XlDkz4c=";
+    rev = "d9bd3f82ae80df3a0a5056c7c8e2651edce4abab";
+    hash = "sha256-kzHxCszt26Tl7gXUQW9nGKCzM7pYa/M1m09bCCotFpg=";
   };
   frontend = buildNpmPackage {
     pname = "${pname}-frontend";
     inherit version src;
     sourceRoot = "${src.name}/frontend";
-    nodejs = pkgs.nodejs_24;
-    npmDepsHash = "sha256-j0F7aly/5ESwX/bdp9sqIJRKYCEuwpZX0xmu1ledVwc=";
+    nodejs = pkgs.nodejs_26;
+    npmDepsHash = "sha256-RXLAORCcN5CrrHka6INVxPGiuZWeS5OfU1cHeYNH7pM=";
     dontNpmInstall = true;
     installPhase = ''
       runHook preInstall
@@ -33,7 +33,7 @@ let
 in
 buildGoModule {
   inherit pname version src;
-  vendorHash = "sha256-rcQTRPuDQfbQY2mdWfG5awX4o0H/adN0caOhQGKkjDE=";
+  vendorHash = "sha256-vklTd5YEHnXSOENSN4coq945LUJ6YZA/e28xwG80t+s=";
   subPackages = [ "cmd/mcpproxy" ];
   doCheck = false;
   env.CGO_ENABLED = 0;
@@ -46,13 +46,13 @@ buildGoModule {
   ldflags = [
     "-s"
     "-w"
-    "-X main.version=v${version}"
-    "-X github.com/smart-mcp-proxy/mcpproxy-go/internal/httpapi.buildVersion=v${version}"
+    "-X main.version=${version}"
+    "-X github.com/slopster67/mcpproxy-go/internal/httpapi.buildVersion=${version}"
   ];
 
   meta = {
     description = "Local MCP gateway with upstream OAuth and a web management UI";
-    homepage = "https://github.com/smart-mcp-proxy/mcpproxy-go";
+    homepage = "https://github.com/slopster67/mcpproxy-go";
     license = lib.licenses.mit;
     mainProgram = "mcpproxy";
     platforms = [
