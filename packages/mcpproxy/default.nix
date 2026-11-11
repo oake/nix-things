@@ -13,8 +13,8 @@ let
   src = fetchFromGitHub {
     owner = "slopster67";
     repo = "mcpproxy-go";
-    rev = "d9bd3f82ae80df3a0a5056c7c8e2651edce4abab";
-    hash = "sha256-kzHxCszt26Tl7gXUQW9nGKCzM7pYa/M1m09bCCotFpg=";
+    rev = "f59c4fd0356919b49484d49b14179f1b4a6b2008";
+    hash = "sha256-8HZ3aKIDbzGtnVKNxKEf/d51XnDYvGXAiSuc87HEwX8=";
   };
   frontend = buildNpmPackage {
     pname = "${pname}-frontend";

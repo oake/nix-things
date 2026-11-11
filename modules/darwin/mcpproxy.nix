@@ -62,6 +62,11 @@ let
         mkdir -p ${lib.escapeShellArg dataDir}
         chmod 0700 ${lib.escapeShellArg dataDir}
         chown ${lib.escapeShellArg owner} ${lib.escapeShellArg dataDir}
+
+        # launchd opens StandardOutPath as UserName, which cannot create files in /var/log
+        touch ${lib.escapeShellArg log}
+        chmod 0600 ${lib.escapeShellArg log}
+        chown ${lib.escapeShellArg owner} ${lib.escapeShellArg log}
       '';
     };
 in
