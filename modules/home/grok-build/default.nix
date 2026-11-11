@@ -220,7 +220,7 @@ in
           lib.hm.generators.mkImpureConfigMerger {
             inherit pkgs;
             format = "toml";
-            empty = "";
+            empty = "{}";
             path = configFile;
             staticSettings = settingsSource;
             mode = "600";
