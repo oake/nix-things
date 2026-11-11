@@ -17,7 +17,7 @@ in
   options.services.mcpproxy-peer = {
     enable = lib.mkEnableOption ''
       an MCPProxy peer (`mcpproxy peer`). It connects outward to a primary and
-      relays this machine's local MCP sessions through it; it has no dashboard,
+      runs the primary's servers assigned to this machine; it has no dashboard,
       admin API or database
     '';
 
@@ -25,8 +25,8 @@ in
       description = ''
         MCPProxy peer settings. Each option maps to one `MCPPROXY_*`
         environment variable, read once at startup. Everything else is
-        configured centrally on the primary. The token is only accepted as a
-        file, never inline.
+        configured centrally on the primary. The token is optional and only
+        accepted as a file, never inline.
       '';
       default = { };
       type = types.submodule {
@@ -54,15 +54,30 @@ in
           };
 
           tokenFile = mkOption {
-            type = types.path;
+            type = types.nullOr types.path;
+            default = null;
             example = "/run/agenix/mcpproxy-peer-token";
-            description = "File containing the peer token created on the primary under Clients, Add peer (`MCPPROXY_PEER_TOKEN_FILE`).";
+            description = ''
+              File containing the peer token created on the primary under
+              Clients, Add peer (`MCPPROXY_PEER_TOKEN_FILE`).
+
+              Null signs the peer in through the browser instead: open the
+              `listen` address on this machine, sign in to the primary and
+              choose the peer. The sign-in is kept in the data directory and
+              survives restarts; rotating or deleting the peer on the primary
+              signs it out.
+            '';
           };
 
           listen = mkOption {
             type = types.str;
             default = "127.0.0.1:8080";
-            description = "Address of this machine's local MCP endpoint (`/mcp`), which clients connect to with their client token (`MCPPROXY_LISTEN`).";
+            description = ''
+              Address of this machine's local MCP endpoint (`/mcp`), which MCP
+              clients connect to with a client token or by signing in, and of
+              the peer's own sign-in page (`MCPPROXY_LISTEN`). Browser sign-in
+              must be opened on a loopback address such as `127.0.0.1`.
+            '';
           };
 
           log = mcp.logOptions;
