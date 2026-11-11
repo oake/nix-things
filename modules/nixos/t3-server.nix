@@ -125,6 +125,8 @@ in
       groups.${defaultUser} = { };
     };
 
+    environment.systemPackages = [ cfg.package ];
+
     networking.firewall.allowedTCPPorts = lib.optional cfg.openFirewall cfg.port;
 
     systemd.services.t3-server = {
