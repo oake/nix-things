@@ -23,6 +23,21 @@ stdenv.mkDerivation (finalAttrs: {
   };
 
   postPatch = ''
+    # the preview browser downloads a generic-linux chrome-headless-shell that
+    # can't run on NixOS; let the environment provide one instead, e.g.
+    # T3CODE_BROWSER_EXECUTABLE=''${chromium}/bin/chromium
+    substituteInPlace apps/server/src/preview/PreviewBrowser.ts \
+      --replace-fail \
+        '  return PreviewBrowser.of({ executable, installed });' \
+        '  const override = process.env.T3CODE_BROWSER_EXECUTABLE;
+      if (override) {
+        return PreviewBrowser.of({
+          executable: Effect.succeed(override),
+          installed: Effect.succeed(Option.some(override)),
+        });
+      }
+      return PreviewBrowser.of({ executable, installed });'
+
     # the web build fetches SPDX license templates from GitHub otherwise
     mkdir -p .generated/third-party-licenses/spdx/v3.28.0
     cp ${pkgs.spdx-license-list-data.json}/json/details/*.json \
