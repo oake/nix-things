@@ -12,8 +12,8 @@ pkgs.buildGoModule {
         type = "github";
         owner = "oake";
         repo = "infra";
-        rev = "34f5e7be84ccfae7d119ca60c28699c60f0b2d1a";
-        narHash = "sha256-DmgyKwwiEINK1L3N+p79v32cUv3CMr58AlMJj9wXc1o=";
+        rev = "00e5c2bf4fe566c46ef745a0aa6fa864888c971f";
+        narHash = "sha256-bSpPSF0QhI2LAnKvO9Kv95Is9e2Prv3EEylZ6KGNcJ8=";
       };
       component = pkgs.lib.removePrefix "infra-" pname;
     in
@@ -50,9 +50,9 @@ pkgs.buildGoModule {
   version = "unstable";
   vendorHash =
     if pname == "infra-hub" then
-      "sha256-UTkp3qXSpq/hljlAh4CWMhg4T0r7yJwDR/CPWqhtNe4="
+      "sha256-kSzSLfG+92M95p38vxqfMKk+BzBh072558y29GPD6Ok="
     else
-      "sha256-g40tA5tuYtd5tQj3k7wOflvxonA74HPpFGiXvgjeZQA=";
+      "sha256-QCfEzTW8y37TyB+V1C5bpYBSXirkC15eYvAVa5zefIQ=";
   subPackages = [ "cmd/${pname}" ];
   env.CGO_ENABLED = 0;
   ldflags = [
