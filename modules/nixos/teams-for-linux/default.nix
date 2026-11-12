@@ -10,7 +10,7 @@ let
     cfg.extraFlags
     ++ lib.optional cfg.settings.disablePinch "--disable-pinch"
     ++ lib.optionals cfg.watchcat.enable [
-      "--awayOnSystemIdle=true"
+      "--idleDetection.setAwayOnIdle=true"
       "--idleDetection.forceState"
       "--idleDetection.stateFile=${cfg.watchcat.stateFile}"
     ];
