@@ -86,6 +86,9 @@ stdenv.mkDerivation (finalAttrs: {
     # `vp config` in @t3tools/monorepo needs git
     pnpm rebuild --pending "''${pnpmInstallFlags[@]}" --filter '!@t3tools/monorepo'
 
+    # upstream's public production Connect config is consumed by both the
+    # server and web builds via loadRepoEnv; keep it tied to the pinned source
+    cp .env.example .env
     pnpm vp run --filter t3 build
 
     runHook postBuild
