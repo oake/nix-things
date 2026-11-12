@@ -84,7 +84,7 @@ class Receiver:
                               'build' if step['type'] == 'build' else 'evaluate')
                           for step in p['failed_steps']))
         prompt = re.sub(r'\{\{([a-z_]+)\}\}', lambda m: values[m[1]], self.c['prompt'])
-        branch = 'flake-update/fix-' + str(p['parent_build_id'])
+        branch = 'flake-update-fix/' + str(p['parent_build_id'])
         argv = [self.c['t3Executable'], 'thread', 'start', '--worktree', 'origin/flake-update',
                 '--branch', branch, '--title', 'Fix flake update ' + str(p['parent_build_id']), '--json']
         if self.c.get('t3BaseDir'):
