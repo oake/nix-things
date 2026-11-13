@@ -21,6 +21,8 @@ stdenvNoCC.mkDerivation {
 
   passthru.loadInformation = "SIP75.9-4-2SR4-3S";
 
+  passthru.updateScript = null;
+
   meta = {
     description = "Firmware files for the Cisco Unified IP Phone 7975G";
     license = lib.licenses.unfreeRedistributableFirmware;

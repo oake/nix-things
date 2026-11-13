@@ -74,6 +74,12 @@ stdenv.mkDerivation {
     runHook postInstallCheck
   '';
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     description = "Decrypt FairPlay-encrypted IPAs using an account credential";
     homepage = "https://github.com/EthanArbuckle/fairplay-decrypt";

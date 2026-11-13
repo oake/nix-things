@@ -4,5 +4,8 @@
 # with every set in its detail. Built from plain nixpkgs since `pkgs.nixd` here
 # is this package.
 inputs.nixpkgs.legacyPackages.${system}.nixd.overrideAttrs (old: {
+  passthru = (old.passthru or { }) // {
+    updateScript = null;
+  };
   patches = (old.patches or [ ]) ++ [ ./merge-option-completions.patch ];
 })

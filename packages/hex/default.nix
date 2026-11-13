@@ -40,6 +40,11 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
+  passthru.updateScript = [
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "Local-first voice dictation for macOS";
     homepage = "https://anoma.ly/hex/";

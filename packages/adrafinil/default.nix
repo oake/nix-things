@@ -92,6 +92,11 @@ pkgs.stdenv.mkDerivation {
       --code-signature-flags Contents/Helpers/adrafinil:runtime "$app"
   '';
 
+  passthru.updateScript = [
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "Native menu-bar app that inhibits sleep, including with the lid closed";
     homepage = "https://github.com/kageroumado/adrafinil";

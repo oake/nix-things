@@ -19,6 +19,8 @@ stdenvNoCC.mkDerivation {
     cp -r $src $out/share/fonts/opentype/${pname}.otf
   '';
 
+  passthru.updateScript = null;
+
   meta = with lib; {
     description = "Comic Code font by Toshi Omagari";
     homepage = "https://tosche.net/fonts/comic-code";

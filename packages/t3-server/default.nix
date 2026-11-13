@@ -125,6 +125,16 @@ stdenv.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--use-github-releases"
+      "--version-regex"
+      "^v([0-9]+[.][0-9]+[.][0-9]+)$"
+      "--subpackage"
+      "resourceMonitor"
+    ];
+  };
+
   passthru.resourceMonitor = pkgs.rustPlatform.buildRustPackage {
     pname = "${pname}-resource-monitor";
     inherit (finalAttrs) version src;

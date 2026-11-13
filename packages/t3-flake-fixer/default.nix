@@ -10,6 +10,8 @@ pkgs.stdenvNoCC.mkDerivation {
     makeWrapper ${pkgs.python3}/bin/python $out/bin/t3-flake-fixer \
       --add-flags $out/libexec/t3-flake-fixer.py
   '';
+  passthru.updateScript = null;
+
   meta = {
     description = "Buildbot log collector and T3 repair launcher";
     mainProgram = "t3-flake-fixer";

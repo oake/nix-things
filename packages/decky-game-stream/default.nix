@@ -36,6 +36,8 @@ buildNpmPackage {
     runHook postInstall
   '';
 
+  passthru.updateScript = null;
+
   meta = {
     description = "Decky plugin to toggle game stream";
     license = lib.licenses.mit;

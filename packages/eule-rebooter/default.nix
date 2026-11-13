@@ -29,6 +29,12 @@ buildGoModule {
 
   env.CGO_ENABLED = 0;
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     homepage = "https://github.com/anna-oake/eule-rebooter";
     description = "Reboots the system when instructed by a pollable HTTP server";

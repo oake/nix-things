@@ -67,6 +67,12 @@ stdenv.mkDerivation (finalAttrs: {
     makeWrapper /usr/bin/open "$out/bin/${pname}" --add-flags "'$app'"
   '';
 
+  passthru.updateScript = [
+    ./update.sh
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "CleanShot X with configurable cloud API and dashboard URLs";
     homepage = "https://cleanshot.com";

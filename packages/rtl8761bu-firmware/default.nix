@@ -19,6 +19,8 @@ stdenvNoCC.mkDerivation {
     cp ${./rtl8761bu_fw.bin} $out/lib/firmware/rtl_bt/rtl8761bu_fw.bin
   '';
 
+  passthru.updateScript = null;
+
   meta = with lib; {
     description = "Firmware for Realtek RTL8761bu";
     license = licenses.unfreeRedistributableFirmware;

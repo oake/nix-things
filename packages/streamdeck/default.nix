@@ -9,15 +9,15 @@ let
     fetchFromGitHub
     udev
     ;
+  version = "1.7.2";
 in
 buildGoModule {
-  inherit pname;
-  version = "1.7.2";
+  inherit pname version;
 
   src = fetchFromGitHub {
     owner = "Luzifer";
     repo = pname;
-    rev = "122bd63cc98ec304788e655f377f71e21e5117d5";
+    tag = "v${version}";
     sha256 = "sha256-qagu83Cz/cQyRAAKBCffWVyOq+pF7GtcfWIgVwiK76Q=";
   };
 

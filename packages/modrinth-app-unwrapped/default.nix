@@ -2,7 +2,14 @@
 # TODO drop once merged NixOS/nixpkgs#584442
 let
   inherit (pkgs) lib stdenv;
-  upstream = pkgs.callPackage "${pkgs.path}/pkgs/by-name/mo/modrinth-app-unwrapped/package.nix" { };
+  upstream =
+    (pkgs.callPackage "${pkgs.path}/pkgs/by-name/mo/modrinth-app-unwrapped/package.nix" { })
+    .overrideAttrs
+      (old: {
+        passthru = (old.passthru or { }) // {
+          updateScript = null;
+        };
+      });
 in
 if lib.elem pkgs.sqlite upstream.buildInputs then
   lib.warn "nix-things: nixpkgs has fixed modrinth-app-unwrapped, drop packages/modrinth-app-unwrapped" upstream

@@ -59,6 +59,14 @@ pkgs.buildGoModule {
     "-s"
     "-w"
   ];
+  passthru = {
+    updateGroup = "infra";
+    updateScript = [
+      ./infra/update.sh
+      ./infra-package.nix
+    ];
+  };
+
   meta = {
     homepage = "https://github.com/oake/infra";
     mainProgram = pname;
