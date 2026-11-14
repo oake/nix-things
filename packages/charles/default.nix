@@ -37,7 +37,7 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "5.2.2";
+  version = "5.2.3";
 
   # macOS needs the native app bundle (JNI libs, VAqua, macOS main class);
   # elsewhere the jars are arch-independent, so the x86_64 tarball serves all.
@@ -47,9 +47,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     }";
     hash =
       if isDarwin then
-        "sha256-Vg4Qwxuy5oC5udrfD7ZkUCib0itKaLysWhOozOUtnwU="
+        "sha256-xvCNQNOfyGWw1OSYn4nEKPQ7olsOVATHlDvZgTF/8NI="
       else
-        "sha256-oj6yCojocVHUzia8Hy+D36r8OB+cESUYHfAqMIniUok=";
+        "sha256-r+IuJxwcc13+8sSnbikaXMtzY0saD344cAmRGKxd6qk=";
     curlOptsList = [
       "--user-agent"
       "Mozilla/5.0"
