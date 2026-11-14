@@ -11,13 +11,13 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "1.2";
+  version = "0-unstable-2025-05-01";
 
   src = fetchFromGitHub {
     owner = "maeve-oake";
     repo = "Lion";
-    rev = "2b790684f727f893fa2680e4144d5df4187cc0d3";
-    sha256 = "sha256-AQgTzU6DRWOBch79gyuvhrYv0ZkUvZQYn1UdNRdNmkE=";
+    rev = "ff37e0273a73e3a9ca19ff45e02e4f5786ee72a5";
+    sha256 = "sha256-4oqWTdyxABEsmsit3hh5hwuIJ0n5SXJcQ6VUWovD1yI=";
   };
 
   installPhase = ''
