@@ -15,13 +15,13 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "0-unstable-2026-10-23";
+  version = "0-unstable-2026-11-08";
 
   src = fetchFromGitHub {
     owner = "EthanArbuckle";
     repo = "fairplay-decrypt";
-    rev = "1bad106ee1698c6d9c483f67d898183ffa4c6eb3";
-    hash = "sha256-V9zR4+wbLkMYdC3OLSEgJFALOi/7lWuzi0OXRV9+I+g=";
+    rev = "d81d98b13656c9dbb340f04dd0838137278f44a5";
+    hash = "sha256-TFFwGpSEyfIst+sxap91dVTlJ+YUrFueyRVTmnZty60=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
