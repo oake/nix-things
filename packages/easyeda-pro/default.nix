@@ -19,7 +19,7 @@ let
     udev
     lib
     ;
-  version = "2.2.45.4";
+  version = "3.2.209";
 
   buildInputs = [
     glib
@@ -36,7 +36,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://image.easyeda.com/files/easyeda-pro-linux-x64-${version}.zip";
-    sha256 = "sha256-rLYVfPisNhVU2YiHVhCGQf5coWrPccYR2qbtVJENUAI=";
+    sha256 = "sha256-Zg+E3I5M9dF7fFlT66DFNxOt+FxxuhzlAmfnplEsOc8=";
   };
 
   nativeBuildInputs = [
