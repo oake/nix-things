@@ -9,7 +9,7 @@ let
     fetchFromGitHub
     udev
     ;
-  version = "1.7.2";
+  version = "2.0.3";
 in
 buildGoModule {
   inherit pname version;
@@ -18,16 +18,12 @@ buildGoModule {
     owner = "Luzifer";
     repo = pname;
     tag = "v${version}";
-    sha256 = "sha256-qagu83Cz/cQyRAAKBCffWVyOq+pF7GtcfWIgVwiK76Q=";
+    sha256 = "sha256-AAmlebHfHuq/DsMPtTeU/20+84pozcUumbvLGGKw5d4=";
   };
 
   modRoot = "./cmd/streamdeck";
 
-  vendorHash = "sha256-dzgCf+ZAI6OOLs5Umitd4iJnaQher7GNXMzgtEGT5J4=";
-
-  patches = [
-    ./fix-stderr.patch
-  ];
+  vendorHash = "sha256-VHkz8OIH5eV4Xt6AIIUBN3X67KlMOYqNRyEvXzunByg=";
 
   buildInputs = [
     udev
