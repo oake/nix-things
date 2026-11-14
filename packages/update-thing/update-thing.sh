@@ -58,13 +58,31 @@ metadata=$(nix eval --json --no-write-lock-file \
 
 export UPDATE_NIX_ATTR_PATH="$attribute"
 
+result_expression='pkg:
+  let
+    version = pkg.version or "unknown";
+    source = pkg.src.origSrc or pkg.src or { };
+  in {
+    package = pkg.passthru.updateGroup or pkg.pname or pkg.name;
+    version = if version == "unstable" && builtins.isAttrs source && source ? rev
+      then builtins.substring 0 12 source.rev else version;
+  }'
+before=$(nix eval --json --no-write-lock-file ".#$attribute" --apply "$result_expression")
+changes() {
+  git diff --no-ext-diff HEAD
+  git ls-files --others --exclude-standard
+}
+before_changes=$(changes)
+skipped=false
+
 case "$(jq -r .mode <<< "$metadata")" in
   skip)
+    skipped=true
     echo "Skipping $attribute: updateScript is null"
     ;;
   nix-update)
     mapfile -d '' -t args < <(jq -j '.args[] | ., "\u0000"' <<< "$metadata")
-    exec nix-update --flake "${args[@]}"
+    nix-update --flake "${args[@]}"
     ;;
   custom)
     mapfile -d '' -t dependencies < <(
@@ -96,6 +114,26 @@ case "$(jq -r .mode <<< "$metadata")" in
     UPDATE_NIX_PNAME=$(jq -r .pname <<< "$metadata")
     UPDATE_NIX_OLD_VERSION=$(jq -r .oldVersion <<< "$metadata")
     export UPDATE_NIX_NAME UPDATE_NIX_PNAME UPDATE_NIX_OLD_VERSION
-    exec "${command[@]}"
+    "${command[@]}"
     ;;
-esac
+esac >&2
+
+after=$before
+changed=false
+if [[ $skipped == false ]]; then
+  after=$(nix eval --json --no-write-lock-file ".#$attribute" --apply "$result_expression")
+  if [[ $(changes) != "$before_changes" ]]; then
+    changed=true
+  fi
+fi
+jq -cn --argjson before "$before" --argjson after "$after" \
+  --arg attribute "$attribute" --argjson changed "$changed" --argjson skipped "$skipped" '
+  {
+    package: $before.package,
+    attribute: $attribute,
+    oldVersion: $before.version,
+    newVersion: $after.version,
+    changed: $changed,
+    skipped: $skipped,
+    title: "\($before.package): \($before.version) -> \($after.version)"
+  }'
