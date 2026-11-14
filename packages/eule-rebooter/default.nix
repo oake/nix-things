@@ -11,7 +11,7 @@ let
 in
 buildGoModule {
   inherit pname;
-  version = "0.1";
+  version = "0-unstable-2026-01-06";
 
   src = fetchFromGitHub {
     owner = "anna-oake";
