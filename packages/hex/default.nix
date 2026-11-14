@@ -13,11 +13,11 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "3.3.0";
+  version = "3.4.0";
 
   src = fetchurl {
     url = "https://github.com/anomalyco/hex/releases/download/v${finalAttrs.version}/hex-${finalAttrs.version}-macos-arm64.zip";
-    hash = "sha256-HCjWoeeQMj7xmbSBvJIx5q2OcKF4W+hJE+Cnvwpuuzk=";
+    hash = "sha256-GrAkLcO7ARyIVokDy/Hp0wMQhnpG9RaDCYU9b4tMplA=";
   };
 
   nativeBuildInputs = [
