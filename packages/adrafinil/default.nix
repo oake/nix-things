@@ -4,7 +4,7 @@
 }:
 let
   inherit (pkgs) lib;
-  version = "1.14.1";
+  version = "1.14.2";
   propofol = pkgs.fetchFromGitHub {
     owner = "kageroumado";
     repo = "propofol";
@@ -18,7 +18,7 @@ pkgs.stdenv.mkDerivation {
     owner = "kageroumado";
     repo = "adrafinil";
     tag = "v${version}";
-    hash = "sha256-FAOq8TteaBHcv2znttjGaQFRS1gIOMUZwaA+cwchfhM=";
+    hash = "sha256-y4GepphbJl1l4oLDXXbYR0yG1llwRDRFG0sKvCGGz8M=";
   };
 
   patches = [
