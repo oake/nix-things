@@ -12,16 +12,16 @@ let
 in
 buildGoModule rec {
   inherit pname;
-  version = "2.7.6";
+  version = "2.6.6";
 
   src = fetchFromGitHub {
     owner = "drakkan";
     repo = "sftpgo";
     tag = "v${version}";
-    hash = "sha256-BuCKn6Y0ORBKPYPqf8gCOr9/i+f2wv0/SnnumP6XpBs=";
+    hash = "sha256-SembD+BM5Zetexh0iLTfrq/I1tz2BCwGUn6OyFeTHF4=";
   };
 
-  vendorHash = "sha256-iIpYKuHkLB7wzpTIgz9W2L7bnVHvs21ich8omsc0J+c=";
+  vendorHash = "sha256-7hS4E7PXlydHFi4ul5+hyUPOvozialXW/m1tDLqbQUs=";
 
   ldflags = [
     "-s"
@@ -49,6 +49,9 @@ buildGoModule rec {
     mkdir -p "$shareDirectory"
     cp -r ./{openapi,static,templates} "$shareDirectory"
   '';
+
+  # newer version don't have the sftp subsystem mode
+  passthru.updateScript = null;
 
   meta = {
     homepage = "https://github.com/drakkan/sftpgo";
