@@ -25,13 +25,13 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "1.94.10-cs9711";
+  version = "0-unstable-2026-10-18";
 
   src = fetchFromGitHub {
     owner = "archeYR";
     repo = "libfprint-CS9711";
-    rev = "02b285c9703c38d308fbe47a3c566ef1e7f883ca";
-    hash = "sha256-QGrBNqbRNqLZIURI66xkenlQamNW+DQU4WS+CLN4zM8=";
+    rev = "3c93fc2da6347624fc9c2d2f36a38fec64f99835";
+    hash = "sha256-cZItBY2VEvuOimT8IP4SaZaNlzXtc+d+Fw3Tk3Lx5+s=";
   };
 
   postPatch = ''
