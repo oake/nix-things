@@ -11,7 +11,7 @@ let
 in
 stdenvNoCC.mkDerivation {
   inherit pname;
-  version = "1.0.0";
+  version = "0-unstable-2025-06-29";
 
   src = fetchFromGitHub {
     owner = "maeve-oake";
