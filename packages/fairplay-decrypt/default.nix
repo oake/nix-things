@@ -5,7 +5,7 @@
 let
   inherit (pkgs)
     lib
-    stdenv
+    stdenvNoCC
     fetchFromGitHub
     makeWrapper
     python3
@@ -13,7 +13,7 @@ let
 
   python = python3.withPackages (ps: [ ps.cryptography ]);
 in
-stdenv.mkDerivation {
+stdenvNoCC.mkDerivation {
   inherit pname;
   version = "0-unstable-2026-11-08";
 
@@ -34,20 +34,13 @@ stdenv.mkDerivation {
         'default=Path("credential.bin")'
   '';
 
-  # The default target also builds credential retrieval on Darwin.
-  buildFlags = [ "transform" ];
-  makeFlags = [ "CC=${stdenv.cc.targetPrefix}cc" ];
-
-  # Darwin strip mistakes the raw constant table for an object file.
-  stripExclude = [ "transform_const_data.bin" ];
+  dontBuild = true;
 
   installPhase = ''
     runHook preInstall
 
     install -Dm644 decrypt.py "$out/libexec/fairplay-decrypt/decrypt.py"
     install -Dm644 core.py "$out/libexec/fairplay-decrypt/core.py"
-    install -Dm644 transform_const_data.bin "$out/libexec/fairplay-decrypt/transform_const_data.bin"
-    install -Dm755 transform "$out/libexec/fairplay-decrypt/transform"
     makeWrapper ${python}/bin/python "$out/bin/fairplay-decrypt" \
       --add-flags "$out/libexec/fairplay-decrypt/decrypt.py" \
       --set PYTHONNOUSERSITE 1
@@ -60,15 +53,10 @@ stdenv.mkDerivation {
     runHook preInstallCheck
 
     "$out/bin/fairplay-decrypt" --help
-    # Exercise Python imports, the native helper, and the installed data together.
     PYTHONPATH="$out/libexec/fairplay-decrypt" ${python}/bin/python -P - <<'PY'
-    import os
-    from pathlib import Path
-    from core import BlockTransform
+    from core import block_transform
 
-    root = Path(os.environ["out"]) / "libexec/fairplay-decrypt"
-    with BlockTransform(root / "transform", root / "transform_const_data.bin") as transform:
-        assert transform(bytes(16), bytes(16)).hex() == "6ed2ad231cd7fd2da88305897d7ccbde"
+    assert block_transform(bytes(16), bytes(16)).hex() == "66e94bd4ef8a2c3b884cfa59ca342b2e"
     PY
 
     runHook postInstallCheck
@@ -83,8 +71,7 @@ stdenv.mkDerivation {
   meta = {
     description = "Decrypt FairPlay-encrypted IPAs using an account credential";
     homepage = "https://github.com/EthanArbuckle/fairplay-decrypt";
-    # Upstream does not provide a license.
-    license = lib.licenses.unfree;
+    license = lib.licenses.gpl3Only;
     mainProgram = "fairplay-decrypt";
     platforms = [
       "aarch64-darwin"
