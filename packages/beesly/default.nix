@@ -1,7 +1,7 @@
 { pkgs, pname }:
 pkgs.buildDotnetModule {
   inherit pname;
-  version = "0-unstable-2026-10-08";
+  version = "0-unstable-2026-10-29";
   src = pkgs.fetchFromGitHub {
     owner = "maeve-oake";
     repo = "beesly";
