@@ -37,8 +37,8 @@ let
     modCtrl = "mod_ctrl";
     modShift = "mod_shift";
     modMeta = "mod_meta";
-    changeVolume = "change_volume";
-    setVolume = "set_volume";
+    attachStderr = "attach_stderr";
+    attachStdout = "attach_stdout";
   };
 
   allAttributes = {
@@ -58,10 +58,11 @@ let
       description = "Font size to use.";
     };
     interval = mkOption {
-      type = types.nullOr types.ints.unsigned;
+      type = types.nullOr (types.either types.ints.unsigned types.str);
       default = null;
-      example = 5;
-      description = "Display refresh interval in seconds.";
+      apply = value: if builtins.isInt value then "${toString value}s" else value;
+      example = "5s";
+      description = "Display refresh interval as a duration string, or an integer number of seconds.";
     };
     border = mkOption {
       type = types.nullOr types.ints.unsigned;
@@ -105,18 +106,6 @@ let
       example = "/path/to/image.png";
       description = "Path to an image file to display on the key.";
     };
-    deviceType = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      example = "input";
-      description = "Type of the device to control (input / sink / source).";
-    };
-    match = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      example = "^Spotify";
-      description = "Regular expression to match the name of the audio device.";
-    };
     text = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -159,30 +148,6 @@ let
       example = 1;
       description = "Move back in the page-history for N steps.";
     };
-    mute = mkOption {
-      type = types.nullOr (
-        types.enum [
-          "toggle"
-          "true"
-          "false"
-        ]
-      );
-      default = null;
-      example = "toggle";
-      description = "State of mute to set.";
-    };
-    changeVolume = mkOption {
-      type = types.nullOr types.int;
-      default = null;
-      example = -5;
-      description = "Adjustment of the volume to current volume (percent 0-150).";
-    };
-    setVolume = mkOption {
-      type = types.nullOr types.int;
-      default = null;
-      example = 22;
-      description = "Adjustment of the volume in absolute percentage (0-150).";
-    };
   };
 
   keyType = types.submodule {
@@ -209,17 +174,6 @@ let
               "path"
               "url"
             ];
-            pulsevolume =
-              mkAttributesOption "This action supports displaying device state / volume for PulseAudio devices."
-                [
-                  "border"
-                  "caption"
-                  "color"
-                  "device"
-                  "match"
-                  "fontSize"
-                  "interval"
-                ];
             text = mkAttributesOption "This display will display a simple text styable through attributes." [
               "backgroundColor"
               "border"
@@ -227,7 +181,6 @@ let
               "color"
               "fontSize"
               "image"
-              "interval"
               "text"
             ];
           };
@@ -263,15 +216,6 @@ let
                 "name"
                 "relative"
               ];
-              pulsevolume =
-                mkAttributesOption "This action supports volume and mute control for PulseAudio setups."
-                  [
-                    "device"
-                    "match"
-                    "mute"
-                    "changeVolume"
-                    "setVolume"
-                  ];
               toggleDisplay =
                 mkAttributesOption
                   "This action will toggle the display brightness between 0 and the previous value."
