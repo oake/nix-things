@@ -65,6 +65,12 @@ buildGoModule {
         --set-default GST_PLUGIN_SCANNER_1_0 "${gstPluginScanner}"
     '';
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     homepage = "https://github.com/danielpaulus/quicktime_video_hack";
     description = "Record iOS device audio and video";

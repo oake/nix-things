@@ -117,6 +117,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
+  passthru.updateScript = [
+    ./update.sh
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "Web Debugging Proxy";
     homepage = "https://www.charlesproxy.com/";

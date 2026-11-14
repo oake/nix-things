@@ -20,6 +20,8 @@ stdenvNoCC.mkDerivation {
     find $out/share/plymouth/themes/ -name \*.plymouth -exec sed -i "s@\/usr\/@$out\/@" {} \;
   '';
 
+  passthru.updateScript = null;
+
   meta = {
     description = "Feet Plymouth boot splash";
     platforms = lib.platforms.linux;

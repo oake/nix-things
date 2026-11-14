@@ -40,6 +40,12 @@ stdenvNoCC.mkDerivation {
     }
   ];
 
+  passthru.updateScript = [
+    ./update.sh
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "Ilya Birman Typography Layout for macOS";
     platforms = lib.platforms.darwin;

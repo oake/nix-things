@@ -69,6 +69,12 @@ stdenv.mkDerivation {
       --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath buildInputs}:$out/opt/easyeda-pro
   '';
 
+  passthru.updateScript = [
+    ./update.sh
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
+
   meta = {
     description = "EasyEDA Pro Edition";
     homepage = "https://easyeda.com/";

@@ -21,6 +21,8 @@ stdenvNoCC.mkDerivation {
 
   passthru.loadInformation = "SIP45.9-4-2SR4-3S";
 
+  passthru.updateScript = null;
+
   meta = {
     description = "SIP firmware files for the Cisco Unified IP Phones 7945G and 7965G";
     license = lib.licenses.unfreeRedistributableFirmware;

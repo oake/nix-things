@@ -22,6 +22,12 @@ pkgs.buildDotnetModule {
     BEESLY_EXECUTABLE="$out/bin/beesly" python3 tests/touch_ui.py
     runHook postInstallCheck
   '';
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     description = "Cisco phone XML services with Home Assistant and FreePBX integration";
     homepage = "https://github.com/maeve-oake/beesly";

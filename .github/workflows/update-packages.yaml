@@ -1,0 +1,76 @@
+name: Update packages
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: update-packages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.packages.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Discover packages
+        id: packages
+        run: |
+          matrix=$(nix eval --json .#packages --apply "$(cat .github/package-matrix.nix)")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    name: Update ${{ matrix.name }}
+    env:
+      ATTRIBUTE: ${{ matrix.attribute }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Update package
+        id: update
+        run: |
+          result=$(nix run .#update-thing -- "$ATTRIBUTE")
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update pull request
+        if: fromJSON(steps.update.outputs.result).changed
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.FLAKE_LOCK_PAT }}
+          base: main
+          branch: auto-update/${{ matrix.name }}
+          title: ${{ fromJSON(steps.update.outputs.result).title }}
+          commit-message: ${{ fromJSON(steps.update.outputs.result).title }}
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          body: "- update ${{ matrix.name }}"

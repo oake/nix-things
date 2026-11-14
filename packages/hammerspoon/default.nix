@@ -31,6 +31,12 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
+  passthru.updateScript = [
+    ../../lib/update-source.sh
+    ./default.nix
+    "--use-github-releases"
+  ];
+
   meta = {
     homepage = "https://www.hammerspoon.org";
     description = "Staggeringly powerful macOS desktop automation with Lua";

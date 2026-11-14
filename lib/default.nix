@@ -167,8 +167,9 @@ let
         root: optionalPathAttrs (root + "/packages/kernel") (path: importDir path lib.id);
 
       consumerPackageEntries = packageEntriesFor src;
+      consumerKernelPackageEntries = kernelPackageEntriesFor src;
       overlayPackageEntries = packageEntriesFor blueprintRoot // consumerPackageEntries;
-      kernelPackageEntries = kernelPackageEntriesFor blueprintRoot // kernelPackageEntriesFor src;
+      kernelPackageEntries = kernelPackageEntriesFor blueprintRoot // consumerKernelPackageEntries;
 
       mkPackagesForEntries =
         packageEntries: pkgs:
@@ -466,7 +467,14 @@ let
       # Used internally for packages.<system> (with blueprint's own
       # pkgs) and exposed so consumers can build an overlay that uses
       # their pkgs instead.
-      mkPackagesFor = mkPackagesForEntries consumerPackageEntries;
+      mkPackagesFor =
+        pkgs:
+        # Expose kernel modules with the default kernel as ordinary flake packages,
+        # while the kernel overlay still supports consumers' other kernel versions.
+        (lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (
+          lib.mapAttrs (name: _: pkgs.linuxPackages.${name}) consumerKernelPackageEntries
+        ))
+        // mkPackagesForEntries consumerPackageEntries pkgs;
 
       packages = lib.mapAttrs filterPlatforms unfilteredPackages;
 

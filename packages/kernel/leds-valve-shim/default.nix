@@ -40,6 +40,8 @@ stdenv.mkDerivation {
     runHook postInstall
   '';
 
+  passthru.updateScript = pkgs.nix-update-script { };
+
   meta = {
     description = "Steam-compatible Valve LED class shim driver";
     homepage = "https://github.com/anna-oake/leds-valve-shim";

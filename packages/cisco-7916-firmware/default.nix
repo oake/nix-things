@@ -21,6 +21,8 @@ stdenvNoCC.mkDerivation {
 
   passthru.loadInformation = "B016-1-0-4-2";
 
+  passthru.updateScript = null;
+
   meta = {
     description = "Firmware files for the Cisco Unified IP Phone Expansion Module 7916";
     license = lib.licenses.unfreeRedistributableFirmware;

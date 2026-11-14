@@ -14,7 +14,7 @@ stdenvNoCC.mkDerivation {
   inherit pname version;
 
   src = fetchzip {
-    url = "https://github.com/scriptingosx/desktoppr/releases/download/v0.5/desktoppr-${version}.zip";
+    url = "https://github.com/scriptingosx/desktoppr/releases/download/v${lib.head (lib.splitString "-" version)}/desktoppr-${version}.zip";
     hash = "sha256-JHnQS4ZL0GC4shBcsKtmPOSFBY6zLSV/IAFRb4+A++Q=";
   };
 
@@ -22,6 +22,12 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/bin"
     cp -r desktoppr "$out/bin"
   '';
+
+  passthru.updateScript = [
+    ./update.sh
+    ../../lib/update-source.sh
+    ./default.nix
+  ];
 
   meta = with lib; {
     description = "Simple command line tool to set the desktop picture on macOS";

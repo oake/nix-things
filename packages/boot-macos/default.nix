@@ -40,6 +40,8 @@ stdenvNoCC.mkDerivation {
     cp ${desktop}/share/applications/* $out/share/applications
   '';
 
+  passthru.updateScript = null;
+
   meta = {
     platforms = [ "aarch64-linux" ];
   };

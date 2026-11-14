@@ -50,6 +50,17 @@ buildGoModule {
     "-X github.com/slopster67/mcpproxy-go/internal/httpapi.buildVersion=${version}"
   ];
 
+  passthru = {
+    inherit frontend;
+    updateScript = pkgs.nix-update-script {
+      extraArgs = [
+        "--version=branch"
+        "--subpackage"
+        "frontend"
+      ];
+    };
+  };
+
   meta = {
     description = "Local MCP gateway with upstream OAuth and a web management UI";
     homepage = "https://github.com/slopster67/mcpproxy-go";

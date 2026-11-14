@@ -25,6 +25,12 @@ stdenv.mkDerivation {
     cp -r * $out/share/themes/Lion/.
   '';
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     platforms = lib.platforms.linux;
   };

@@ -12,6 +12,8 @@ writeShellApplication {
   name = pname;
   text = builtins.readFile ./mrrp.sh;
 
+  passthru.updateScript = null;
+
   meta = {
     description = "Open a sish HTTP tunnel on mrrp.win";
     mainProgram = pname;

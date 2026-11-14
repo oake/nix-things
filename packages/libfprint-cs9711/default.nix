@@ -86,6 +86,12 @@ stdenv.mkDerivation {
     runHook postInstallCheck
   '';
 
+  passthru.updateScript = pkgs.nix-update-script {
+    extraArgs = [
+      "--version=branch"
+    ];
+  };
+
   meta = {
     homepage = "https://github.com/archeYR/libfprint-CS9711";
     description = "libfprint with a driver for the Chipsailing CS9711 fingerprint reader";
