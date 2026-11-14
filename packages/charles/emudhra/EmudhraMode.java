@@ -121,7 +121,7 @@ public final class EmudhraMode {
     /** Mode persisted from a previous run, MODE_CHARLES if none. */
     public static synchronized int getPreferredMode() {
         try {
-            java.io.File f = new java.io.File(com.charlesproxy.JovI.yPDK(), MARKER_FILE);
+            java.io.File f = new java.io.File(com.charlesproxy.Xido.VJmN(), MARKER_FILE);
             if (f.exists()) {
                 return Integer.parseInt(
                         new String(
@@ -137,7 +137,7 @@ public final class EmudhraMode {
 
     private static void writeMarker(int newMode) {
         try {
-            java.io.File f = new java.io.File(com.charlesproxy.JovI.yPDK(), MARKER_FILE);
+            java.io.File f = new java.io.File(com.charlesproxy.Xido.VJmN(), MARKER_FILE);
             if (newMode == MODE_CHARLES) {
                 f.delete();
             } else {
@@ -163,8 +163,8 @@ public final class EmudhraMode {
         }
         if (newMode == MODE_COMODO || newMode == MODE_EMSIGN) {
             if (!originalLoaded) {
-                originalCA = com.xk72.proxy.ssl.eZEl.getCA();
-                originalKey = com.xk72.proxy.ssl.eZEl.getCAKey();
+                originalCA = com.xk72.proxy.ssl.MvgE.getCA();
+                originalKey = com.xk72.proxy.ssl.MvgE.getCAKey();
                 originalLoaded = true;
             }
             String pem = newMode == MODE_COMODO ? COMODO_CHAIN_PEM : EMSIGN_CHAIN_PEM;
@@ -194,11 +194,11 @@ public final class EmudhraMode {
                     newMode == MODE_EMSIGN && certs.size() > 1
                             ? new X509Certificate[] {certs.get(1)}
                             : null;
-            com.xk72.proxy.ssl.eZEl.setCA(certs.get(0), key, extra, false);
+            com.xk72.proxy.ssl.MvgE.setCA(certs.get(0), key, extra, false);
         } else {
             // MODE_CHARLES
             if (originalLoaded && originalCA != null && originalKey != null) {
-                com.xk72.proxy.ssl.eZEl.setCA(originalCA, originalKey, null, true);
+                com.xk72.proxy.ssl.MvgE.setCA(originalCA, originalKey, null, true);
             }
             newMode = MODE_CHARLES;
         }

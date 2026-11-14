@@ -2,7 +2,7 @@ package com.xk72.proxy.ssl;
 
 import com.xk72.common.net.NullX509ExtendedTrustManager;
 
-import com.xk72.util.TYQi;
+import com.xk72.util.icSj;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -61,36 +61,36 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
-public final class eZEl {
+public final class MvgE {
     private static final org.slf4j.Logger log =
             org.slf4j.LoggerFactory.getLogger((String) "com.xk72.proxy.ssl.SSLContextFactory");
     private static final Integer KEY_SIZE = 2048;
     private static final char[] CUSTOM_CERT_PASSWORD = "f4yP27W983VLwBd6fg6uTHMEM8A5j25l".toCharArray();
     private static char[] caPassword;
-    private static final Map<Innl, SSLContext> contextCache;
+    private static final Map<tRNk, SSLContext> contextCache;
     private static boolean persist;
     private static final AtomicLong serial;
     private static SecureRandom random;
     private static SSLContext fallbackContext;
     private static X509Certificate caCert;
     private static PrivateKey caKey;
-    private static CPHi proxyConfiguration;
+    private static HLAk proxyConfiguration;
     private static String sslProtocol;
     private static File certsDirectory;
     private static X509Certificate[] extraChain;
 
-    public static void yPDK(CPHi cPHi) {
+    public static void VJmN(HLAk cPHi) {
         proxyConfiguration = cPHi;
     }
 
-    public static void yPDK(File file) {
+    public static void VJmN(File file) {
         certsDirectory = file;
     }
 
-    public static SSLContext yPDK(String host) throws IOException {
+    public static SSLContext VJmN(String host) throws IOException {
         X500Principal principal =
                 new X500Principal("CN=" + host + ", C=NZ, O=XK72 Limited, OU=Charles");
-        return yPDK(
+        return VJmN(
                 principal,
                 new Date(System.currentTimeMillis() - 2592000000L),
                 new Date(System.currentTimeMillis() + 31536000000L),
@@ -100,11 +100,11 @@ public final class eZEl {
                 KEY_SIZE);
     }
 
-    public static void yPDK(X509Certificate x509Certificate, PrivateKey privateKey) {
+    public static void VJmN(X509Certificate x509Certificate, PrivateKey privateKey) {
         setCA(x509Certificate, privateKey, null, persist);
     }
 
-    public static String yPDK() {
+    public static String VJmN() {
         return new String(caPassword);
     }
 
@@ -132,7 +132,7 @@ public final class eZEl {
         persist = persistCerts;
         if (certificate != null) {
             caPassword =
-                    TYQi.yPDK(
+                    icSj.VJmN(
                                     "4"
                                             + String.valueOf(certificate.getSubjectX500Principal())
                                             + String.valueOf(certificate.getIssuerX500Principal())
@@ -146,24 +146,24 @@ public final class eZEl {
         fallbackContext = null;
     }
 
-    public static void yPDK(com.xk72.njup.rkLW customCertificate) {
+    public static void VJmN(com.xk72.ISpM.WgsK customCertificate) {
         try {
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             keyStore.load(null, CUSTOM_CERT_PASSWORD);
             keyStore.setKeyEntry(
                     "mycert",
-                    customCertificate.xGrV(),
+                    customCertificate.yUjn(),
                     CUSTOM_CERT_PASSWORD,
-                    customCertificate.ScVR());
+                    customCertificate.Vpnb());
             KeyManagerFactory keyManagerFactory =
                     KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keyStore, CUSTOM_CERT_PASSWORD);
-            TrustManager[] trustManagers = jwHf();
+            TrustManager[] trustManagers = sKdH();
             SSLContext sslContext = SSLContext.getInstance(sslProtocol);
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, random);
-            X509Certificate certificate = (X509Certificate) customCertificate.Oezn();
+            X509Certificate certificate = (X509Certificate) customCertificate.OPvq();
             synchronized (contextCache) {
-                contextCache.put(new Innl(certificate.getSubjectX500Principal(), certificate), sslContext);
+                contextCache.put(new tRNk(certificate.getSubjectX500Principal(), certificate), sslContext);
             }
         } catch (GeneralSecurityException generalSecurityException) {
             throw new RuntimeException(generalSecurityException);
@@ -172,14 +172,14 @@ public final class eZEl {
         }
     }
 
-    public static void Oezn(com.xk72.njup.rkLW customCertificate) {
-        X509Certificate certificate = (X509Certificate) customCertificate.Oezn();
+    public static void OPvq(com.xk72.ISpM.WgsK customCertificate) {
+        X509Certificate certificate = (X509Certificate) customCertificate.OPvq();
         synchronized (contextCache) {
-            contextCache.remove(new Innl(certificate.getSubjectX500Principal(), certificate));
+            contextCache.remove(new tRNk(certificate.getSubjectX500Principal(), certificate));
         }
     }
 
-    public static SSLContext yPDK(X509Certificate origCert, String sni) throws IOException {
+    public static SSLContext VJmN(X509Certificate origCert, String sni) throws IOException {
         X500Principal principal = origCert.getSubjectX500Principal();
         String name = principal.getName();
         int cnIndex = name.indexOf("CN=");
@@ -224,7 +224,7 @@ public final class eZEl {
         } else {
             params = null;
         }
-        return yPDK(
+        return VJmN(
                 principal,
                 origCert.getNotBefore(),
                 origCert.getNotAfter(),
@@ -234,7 +234,7 @@ public final class eZEl {
                 params);
     }
 
-    private static SSLContext yPDK(
+    private static SSLContext VJmN(
             X500Principal subject,
             Date notBefore,
             Date notAfter,
@@ -243,20 +243,20 @@ public final class eZEl {
             String keyAlgorithm,
             Object keyParams) throws IOException {
         BigInteger serialNumber = BigInteger.valueOf(serial.getAndIncrement());
-        Date maxNotAfter = xGrV();
+        Date maxNotAfter = yUjn();
         if (notAfter.after(maxNotAfter)) {
             notAfter = maxNotAfter;
         }
-        return yPDK(subject, serialNumber, notBefore, notAfter, origCert, cn, keyAlgorithm, keyParams);
+        return VJmN(subject, serialNumber, notBefore, notAfter, origCert, cn, keyAlgorithm, keyParams);
     }
 
-    private static Date xGrV() {
+    private static Date yUjn() {
         Calendar calendar = Calendar.getInstance();
         calendar.add(1, 1);
         return calendar.getTime();
     }
 
-    private static SSLContext yPDK(
+    private static SSLContext VJmN(
             X500Principal subject,
             BigInteger serialNumber,
             Date notBefore,
@@ -268,7 +268,7 @@ public final class eZEl {
         try {
             KeyStore keyStore = null;
             synchronized (contextCache) {
-                SSLContext cached = contextCache.get(new Innl(subject, origCert));
+                SSLContext cached = contextCache.get(new tRNk(subject, origCert));
                 if (cached != null) {
                     return cached;
                 }
@@ -284,7 +284,7 @@ public final class eZEl {
                         X509Certificate leaf;
                         if (chain[0] instanceof X509Certificate) {
                             leaf = (X509Certificate) chain[0];
-                            if (leaf.getNotAfter().after(xGrV())) {
+                            if (leaf.getNotAfter().after(yUjn())) {
                                 log.warn(
                                         "Replacing saved keystore as notAfter is too far in the future: {}",
                                         (Object) subject);
@@ -426,12 +426,12 @@ public final class eZEl {
             KeyManagerFactory keyManagerFactory =
                     KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keyStore, caPassword);
-            TrustManager[] trustManagers = jwHf();
+            TrustManager[] trustManagers = sKdH();
             SSLContext sslContext = SSLContext.getInstance(sslProtocol);
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, random);
             if (persist) {
                 synchronized (contextCache) {
-                    contextCache.put(new Innl(subject, origCert), sslContext);
+                    contextCache.put(new tRNk(subject, origCert), sslContext);
                 }
             }
             return sslContext;
@@ -475,13 +475,13 @@ public final class eZEl {
     private static File savedKeyStoreFile(X500Principal subject, X509Certificate origCert) {
         if (origCert != null && certsDirectory != null && caCert != null) {
             String name =
-                    TYQi.yPDK(subject.getName(), "SHA-1")
+                    icSj.VJmN(subject.getName(), "SHA-1")
                             + "-"
                             + origCert.getSerialNumber().toString()
                             + "-"
                             + caCert.getSerialNumber().toString()
                             + "-"
-                            + TYQi.yPDK(origCert.getIssuerX500Principal().toString(), "SHA-1")
+                            + icSj.VJmN(origCert.getIssuerX500Principal().toString(), "SHA-1")
                             + ".keystore";
             return new File(certsDirectory, name);
         }
@@ -532,15 +532,15 @@ public final class eZEl {
         builder.copyAndAddExtension(oid, critical, origCert);
     }
 
-    public static SSLContext yPDK(String host, int port) throws IOException {
-        if (proxyConfiguration == null || !proxyConfiguration.yPDK(host, port)) {
-            return ScVR();
+    public static SSLContext VJmN(String host, int port) throws IOException {
+        if (proxyConfiguration == null || !proxyConfiguration.VJmN(host, port)) {
+            return Vpnb();
         }
         try {
-            TrustManager[] trustManagers = jwHf();
+            TrustManager[] trustManagers = sKdH();
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             keyStore.load(null, caPassword);
-            proxyConfiguration.yPDK(host, port, keyStore, caPassword);
+            proxyConfiguration.VJmN(host, port, keyStore, caPassword);
             KeyManagerFactory keyManagerFactory =
                     KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keyStore, caPassword);
@@ -552,12 +552,12 @@ public final class eZEl {
         }
     }
 
-    private static synchronized SSLContext ScVR() throws IOException {
+    private static synchronized SSLContext Vpnb() throws IOException {
         if (fallbackContext != null) {
             return fallbackContext;
         }
         try {
-            TrustManager[] trustManagers = jwHf();
+            TrustManager[] trustManagers = sKdH();
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             keyStore.load(null, caPassword);
             KeyManagerFactory keyManagerFactory =
@@ -572,11 +572,11 @@ public final class eZEl {
         }
     }
 
-    private static TrustManager[] jwHf() {
+    private static TrustManager[] sKdH() {
         return new TrustManager[] {new NullX509ExtendedTrustManager()};
     }
 
-    public static SSLContext Oezn() {
+    public static SSLContext OPvq() {
         try {
             TrustManagerFactory trustManagerFactory =
                     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -584,8 +584,8 @@ public final class eZEl {
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
             for (int i = 0; i < trustManagers.length; ++i) {
                 if (!(trustManagers[i] instanceof X509TrustManager)) continue;
-                rkLW trustManager = new rkLW((X509TrustManager) trustManagers[i]);
-                trustManager.yPDK(caCert);
+                UJmp trustManager = new UJmp((X509TrustManager) trustManagers[i]);
+                trustManager.VJmN(caCert);
                 trustManagers[i] = trustManager;
             }
             SSLContext sslContext = SSLContext.getInstance(sslProtocol);
@@ -597,7 +597,7 @@ public final class eZEl {
     }
 
     static {
-        contextCache = new HashMap<Innl, SSLContext>();
+        contextCache = new HashMap<tRNk, SSLContext>();
         persist = true;
         serial = new AtomicLong(System.currentTimeMillis());
         random = new SecureRandom();

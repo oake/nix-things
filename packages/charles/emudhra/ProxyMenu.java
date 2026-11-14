@@ -1,14 +1,14 @@
 package com.charlesproxy.gui.menus;
 
 import com.charlesproxy.CharlesContext;
-import com.charlesproxy.EKMc;
+import com.charlesproxy.fYsX;
 import com.charlesproxy.Strings_;
-import com.charlesproxy.config.rZRx;
+import com.charlesproxy.config.hLjh;
 import com.charlesproxy.gui.CharlesFrame;
 import com.charlesproxy.gui.tools.CharlesGUITool;
 import com.charlesproxy.gui.tools.ToolCheckBoxMenuItem;
 import com.charlesproxy.gui.tools.breakpoints.IBreakpointsTool;
-import com.charlesproxy.hqtm.rkLW;
+import com.charlesproxy.kDMS.WgsK;
 import com.charlesproxy.ssl.EmudhraMode;
 import com.charlesproxy.tools.spi.lib.CharlesTool;
 import java.awt.Toolkit;
@@ -40,83 +40,83 @@ public class ProxyMenu extends JMenu {
         super(title);
         CharlesContext context = CharlesContext.getInstance();
 
-        JMenuItem startRecording = new JMenuItem(rkLW.yPDK(Strings_.YCFk));
+        JMenuItem startRecording = new JMenuItem(WgsK.VJmN(Strings_.WmfX));
         startRecording.setEnabled(false);
         startRecording.setMnemonic('r');
         startRecording.setAccelerator(
                 KeyStroke.getKeyStroke(82, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         startRecording.addActionListener(
                 (java.awt.event.ActionListener)
-                        make("Innl", new Class[] {ProxyMenu.class, CharlesFrame.class}, this, charlesFrame));
+                        make("DPiU", new Class[] {ProxyMenu.class, CharlesFrame.class}, this, charlesFrame));
         charlesFrame.addPropertyChangeListener(
                 (java.beans.PropertyChangeListener)
-                        make("kbXb", new Class[] {ProxyMenu.class, JMenuItem.class}, this, startRecording));
+                        make("MvgE", new Class[] {ProxyMenu.class, JMenuItem.class}, this, startRecording));
         CharlesContext.getInstance()
                 .getProxyManager()
-                .yPDK(
+                .VJmN(
                         (java.beans.PropertyChangeListener)
                                 make(
-                                        "fgXo",
+                                        "tRNk",
                                 new Class[] {ProxyMenu.class, JMenuItem.class, CharlesFrame.class},
                                 this,
                                         startRecording,
                                         charlesFrame));
         this.add(startRecording);
 
-        rZRx sslConfiguration = context.getConfiguration().yPDK();
+        hLjh sslConfiguration = context.getConfiguration().VJmN();
         JMenuItem sslProxying =
                 new JMenuItem(
-                        sslConfiguration.ZJTz()
-                                ? rkLW.yPDK(Strings_.UiMh)
-                                : rkLW.yPDK(Strings_.LHST));
+                        sslConfiguration.opEU()
+                                ? WgsK.VJmN(Strings_.fPWg)
+                                : WgsK.VJmN(Strings_.IEtj));
         sslProxying.setMnemonic('p');
         sslProxying.setAccelerator(
                 KeyStroke.getKeyStroke(76, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         sslProxying.addActionListener(
                 (java.awt.event.ActionListener)
                         make(
-                                "IoGp",
-                                new Class[] {ProxyMenu.class, rZRx.class, CharlesContext.class},
+                                "UJmp",
+                                new Class[] {ProxyMenu.class, hLjh.class, CharlesContext.class},
                                 this,
                                 sslConfiguration,
                                 context));
         sslConfiguration.addPropertyChangeListener(
                 "decryptSSL",
                 (java.beans.PropertyChangeListener)
-                        make("CPHi", new Class[] {ProxyMenu.class, JMenuItem.class}, this, sslProxying));
+                        make("NOcX", new Class[] {ProxyMenu.class, JMenuItem.class}, this, sslProxying));
         this.add(sslProxying);
 
-        JMenuItem throttling = new JMenuItem(rkLW.yPDK(Strings_.xfuh));
+        JMenuItem throttling = new JMenuItem(WgsK.VJmN(Strings_.vvYm));
         throttling.setMnemonic('t');
         throttling.setAccelerator(
                 KeyStroke.getKeyStroke(84, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         throttling.addActionListener(
                 (java.awt.event.ActionListener)
-                        make("dEuo", new Class[] {ProxyMenu.class, CharlesContext.class}, this, context));
+                        make("ScOr", new Class[] {ProxyMenu.class, CharlesContext.class}, this, context));
         context.getProxyManager()
-                .yPDK(
+                .VJmN(
                         "throttling",
                         (java.beans.PropertyChangeListener)
-                                make("eZEl", new Class[] {ProxyMenu.class, JMenuItem.class}, this, throttling));
+                                make("HLAk", new Class[] {ProxyMenu.class, JMenuItem.class}, this, throttling));
         this.add(throttling);
 
         IBreakpointsTool breakpointsTool = context.getTool(IBreakpointsTool.class);
         boolean breakpointsActive = breakpointsTool.isActive();
         JMenuItem breakpoints =
                 new JMenuItem(
-                        breakpointsActive ? rkLW.yPDK(Strings_.Xfzf) : rkLW.yPDK(Strings_.zVZS));
+                        breakpointsActive ? WgsK.VJmN(Strings_.IBAe) : WgsK.VJmN(Strings_.eivN));
         breakpoints.setAccelerator(
                 KeyStroke.getKeyStroke(75, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         breakpoints.addActionListener(
                 (java.awt.event.ActionListener)
                         make(
-                                "JovI",
+                                "Xido",
                                 new Class[] {ProxyMenu.class, IBreakpointsTool.class},
                                 this,
                                 breakpointsTool));
         breakpointsTool.addToolListener(
                 (com.charlesproxy.tools.spi.lib.ToolListener)
-                        make("eJVD", new Class[] {ProxyMenu.class, JMenuItem.class}, this, breakpoints));
+                        make("ftAB", new Class[] {ProxyMenu.class, JMenuItem.class}, this, breakpoints));
         this.add(breakpoints);
 
         this.addSeparator();
@@ -131,7 +131,7 @@ public class ProxyMenu extends JMenu {
                                 "ProxyMenu$8",
                                 new Class[] {ProxyMenu.class, Strings_.class, CharlesFrame.class},
                                 this,
-                                Strings_.kZCR,
+                                Strings_.XmCH,
                                 charlesFrame);
         this.add(throttleSettingsAction)
                 .setAccelerator(
@@ -155,22 +155,22 @@ public class ProxyMenu extends JMenu {
         }
         this.addSeparator();
         boolean addedPlatformToggle = false;
-        if (EKMc.yPDK()) {
-            EKMc macOSProxy = EKMc.Oezn();
+        if (fYsX.VJmN()) {
+            fYsX macOSProxy = fYsX.OPvq();
             if (macOSProxy != null) {
-                JCheckBoxMenuItem macOSProxyItem = new JCheckBoxMenuItem(macOSProxy.ScVR());
-                macOSProxyItem.setSelected(macOSProxy.xGrV());
-                macOSProxyItem.setMnemonic(macOSProxy.jwHf());
+                JCheckBoxMenuItem macOSProxyItem = new JCheckBoxMenuItem(macOSProxy.Vpnb());
+                macOSProxyItem.setSelected(macOSProxy.yUjn());
+                macOSProxyItem.setMnemonic(macOSProxy.sKdH());
                 macOSProxyItem.setAccelerator(
                         KeyStroke.getKeyStroke(
                                 80, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx() | 0x40));
                 macOSProxyItem.addItemListener(
                         (ItemListener)
-                                make("wCRv", new Class[] {ProxyMenu.class, EKMc.class}, this, macOSProxy));
-                macOSProxy.yPDK(
+                                make("tHBK", new Class[] {ProxyMenu.class, fYsX.class}, this, macOSProxy));
+                macOSProxy.VJmN(
                         (java.beans.PropertyChangeListener)
                                 make(
-                                        "gCbV",
+                                        "YSpb",
                                         new Class[] {ProxyMenu.class, JCheckBoxMenuItem.class},
                                         this,
                                         macOSProxyItem));
@@ -178,20 +178,20 @@ public class ProxyMenu extends JMenu {
             }
             addedPlatformToggle = true;
         }
-        if (com.charlesproxy.eTnZ.rkLW.ScVR()) {
-            JCheckBoxMenuItem windowsProxyItem = new JCheckBoxMenuItem(rkLW.yPDK(Strings_.WieX));
-            windowsProxyItem.setSelected(com.charlesproxy.eTnZ.rkLW.xGrV());
+        if (com.charlesproxy.bCjs.WgsK.Vpnb()) {
+            JCheckBoxMenuItem windowsProxyItem = new JCheckBoxMenuItem(WgsK.VJmN(Strings_.pbly));
+            windowsProxyItem.setSelected(com.charlesproxy.bCjs.WgsK.yUjn());
             windowsProxyItem.setMnemonic('f');
             windowsProxyItem.setAccelerator(
                     KeyStroke.getKeyStroke(
                             70, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx() | 0x40));
             ItemListener windowsProxyListener =
-                    (ItemListener) make("DqeP", new Class[] {ProxyMenu.class}, this);
+                    (ItemListener) make("zOsZ", new Class[] {ProxyMenu.class}, this);
             windowsProxyItem.addItemListener(windowsProxyListener);
-            com.charlesproxy.eTnZ.rkLW.yPDK(
+            com.charlesproxy.bCjs.WgsK.VJmN(
                     (java.beans.PropertyChangeListener)
                             make(
-                                    "ajWk",
+                                    "zTUo",
                                     new Class[] {ProxyMenu.class, JCheckBoxMenuItem.class, ItemListener.class},
                                     this,
                                     windowsProxyItem,
@@ -287,7 +287,7 @@ public class ProxyMenu extends JMenu {
         }
     }
 
-    public static void yPDK() {
+    public static void VJmN() {
         CharlesContext.getInstance()
                 .error(
                         "One or more of the required proxy servers are not currently active. "
