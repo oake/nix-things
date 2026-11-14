@@ -50,6 +50,9 @@ buildGoModule rec {
     cp -r ./{openapi,static,templates} "$shareDirectory"
   '';
 
+  # newer version don't have the sftp subsystem mode
+  passthru.updateScript = null;
+
   meta = {
     homepage = "https://github.com/drakkan/sftpgo";
     changelog = "https://github.com/drakkan/sftpgo/releases/tag/v${version}";
