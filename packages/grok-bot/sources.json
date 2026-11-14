@@ -1,14 +1,14 @@
 {
-  "version": "1.0.1",
-  "commitSha": "7eb488cd12ea2e65065a6b227f3ab49160b618bd",
+  "version": "1.1.0",
+  "commitSha": "83d46d618ef4c12afa17edd8e3c29d6caf046d17",
   "sources": {
     "x86_64-linux": {
-      "url": "https://downloads.cursor.com/grokbot/stable/7eb488cd12ea2e65065a6b227f3ab49160b618bd/linux/x64/grok-bot_1.0.1_amd64.deb",
-      "hash": "sha256-hghqhKmVg2uMvwncqzOr4LD954LNn6W5ikJ+3nEcwzc="
+      "url": "https://downloads.cursor.com/grokbot/stable/83d46d618ef4c12afa17edd8e3c29d6caf046d17/linux/x64/grok-bot_1.1.0_amd64.deb",
+      "hash": "sha256-WwL7IVED7e2U7J84GnkNcfZyfwF2gcft0bVvK4z6Vy0="
     },
     "aarch64-linux": {
-      "url": "https://downloads.cursor.com/grokbot/stable/7eb488cd12ea2e65065a6b227f3ab49160b618bd/linux/arm64/grok-bot_1.0.1_arm64.deb",
-      "hash": "sha256-AGOgRu3yrvXD9JV0Lw75ruExzQ/aWXE1xa5n25KeRtc="
+      "url": "https://downloads.cursor.com/grokbot/stable/83d46d618ef4c12afa17edd8e3c29d6caf046d17/linux/arm64/grok-bot_1.1.0_arm64.deb",
+      "hash": "sha256-L6IH7ON6yNlfUN5Jm8VcVTQHJfMtBuADzNyCABU5jxc="
     }
   }
 }
