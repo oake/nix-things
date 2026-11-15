@@ -45,7 +45,15 @@ let
     lib.mapAttrs' (
       name: source:
       lib.nameValuePair "${cfg.configDir}/${directory}/${name}" {
-        inherit source;
+        source =
+          # Packaged directories may not exist yet during evaluation.
+          if builtins.hasContext (toString source) then
+            pkgs.runCommandLocal "grok-build-${directory}-${name}" { } ''
+              test -d ${lib.escapeShellArg (toString source)}
+              ln -s ${lib.escapeShellArg (toString source)} "$out"
+            ''
+          else
+            source;
       }
     ) entries;
   validName = name: builtins.match "[A-Za-z0-9][A-Za-z0-9._-]*" name != null;
@@ -204,7 +212,9 @@ in
         message = "programs.grok-build.context and rules.home-manager target the same file.";
       }
       {
-        assertion = lib.all lib.pathIsDirectory (lib.attrValues cfg.skills ++ lib.attrValues cfg.plugins);
+        assertion = lib.all (source: builtins.hasContext (toString source) || lib.pathIsDirectory source) (
+          lib.attrValues cfg.skills ++ lib.attrValues cfg.plugins
+        );
         message = "programs.grok-build.skills and plugins must reference directories.";
       }
     ];
