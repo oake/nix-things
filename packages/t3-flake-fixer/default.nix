@@ -6,16 +6,16 @@ pkgs.stdenvNoCC.mkDerivation {
   nativeBuildInputs = [ pkgs.makeWrapper ];
   installPhase = ''
     mkdir -p $out/libexec $out/bin
-    cp receiver.py $out/libexec/t3-flake-fixer.py
+    cp cli.py receiver.py notify.py $out/libexec/
     makeWrapper ${pkgs.python3}/bin/python $out/bin/t3-flake-fixer \
-      --add-flags $out/libexec/t3-flake-fixer.py
+      --add-flags $out/libexec/cli.py
   '';
   passthru.updateScript = null;
 
   meta = {
-    description = "Buildbot log collector and T3 repair launcher";
+    description = "Nixbot log collector and T3 repair launcher";
     mainProgram = "t3-flake-fixer";
-    platforms = pkgs.lib.platforms.linux;
+    platforms = pkgs.lib.platforms.unix;
     license = pkgs.lib.licenses.mit;
   };
 }

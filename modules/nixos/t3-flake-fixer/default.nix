@@ -14,18 +14,18 @@ let
         repositories
         prompt
         listenAddress
-        buildbotUrl
+        nixbotUrl
         t3BaseDir
         ;
       t3Executable = lib.getExe cfg.t3Package;
-      storageRoot = if cfg.storageRoot == null then "${home}/buildbot-failures" else cfg.storageRoot;
+      storageRoot = if cfg.storageRoot == null then "${home}/nixbot-failures" else cfg.storageRoot;
       secretFile = if cfg.secretFile == null then null else "%d/token";
     }
   );
 in
 {
   options.services.t3-flake-fixer = {
-    enable = lib.mkEnableOption "Buildbot failure collection and T3 repair launches";
+    enable = lib.mkEnableOption "Nixbot failure collection and T3 repair launches";
     package = lib.mkPackageOption pkgs "t3-flake-fixer" { };
     user = mkOption {
       type = types.str;
@@ -36,15 +36,15 @@ in
       description = "Allowed repositories mapped to absolute local T3 project paths.";
       type = types.attrsOf types.str;
     };
-    buildbotUrl = mkOption {
+    nixbotUrl = mkOption {
       type = types.strMatching "https?://.+";
-      description = "Shared trusted Buildbot base URL, with or without a trailing slash.";
+      description = "Shared trusted Nixbot base URL, with or without a trailing slash.";
       example = "http://builder-buyan.me.ow";
     };
     storageRoot = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = "Absolute log directory; null uses buildbot-failures in the user's configured home.";
+      description = "Absolute log directory; null uses nixbot-failures in the user's configured home.";
     };
     t3Package = lib.mkPackageOption pkgs "t3-server" { };
     t3BaseDir = mkOption {
@@ -54,7 +54,7 @@ in
     };
     prompt = mkOption {
       type = types.str;
-      description = "Repair prompt. Literal placeholders: {{repository}}, {{revision}}, {{parent_build_id}}, {{bundle_path}}, {{failed_steps}} (human-readable bullet list). Substitution is single-pass without shell evaluation.";
+      description = "Repair prompt. Literal placeholders: {{repository}}, {{revision}}, {{build_id}}, {{build_number}}, {{bundle_path}}, {{failed_steps}} (human-readable bullet list). Substitution is single-pass without shell evaluation.";
     };
     secretFile = mkOption {
       type = types.nullOr types.str;
@@ -64,7 +64,7 @@ in
     listenAddress = mkOption {
       type = types.str;
       default = "0.0.0.0:9847";
-      description = "HTTP listen host:port (IPv6 uses [address]:port); notifications are accepted at /buildbot-failure.";
+      description = "HTTP listen host:port (IPv6 uses [address]:port); notifications are accepted at /nixbot-failure.";
     };
   };
   config = lib.mkIf cfg.enable {
@@ -75,7 +75,7 @@ in
       }
     ];
     systemd.services.t3-flake-fixer = {
-      description = "Buildbot failure receiver and T3 launcher";
+      description = "Nixbot failure receiver and T3 launcher";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
@@ -86,7 +86,7 @@ in
         UMask = "0077";
         Restart = "on-failure";
         RestartSec = 5;
-        ExecStart = "${lib.getExe cfg.package} --config ${settings}";
+        ExecStart = "${lib.getExe cfg.package} serve --config ${settings}";
       }
       // lib.optionalAttrs (cfg.secretFile != null) {
         LoadCredential = "token:${cfg.secretFile}";
