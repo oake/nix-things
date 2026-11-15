@@ -12,8 +12,8 @@ pkgs.buildGoModule {
         type = "github";
         owner = "oake";
         repo = "infra";
-        rev = "00e5c2bf4fe566c46ef745a0aa6fa864888c971f";
-        narHash = "sha256-bSpPSF0QhI2LAnKvO9Kv95Is9e2Prv3EEylZ6KGNcJ8=";
+        rev = "ee167e59d1de039b4f68ee8be7282bac9f18c9ba";
+        narHash = "sha256-rYZZRHXice9FXpBtXuMup/16m25PiapgxiXi79qJUXk=";
       };
       component = pkgs.lib.removePrefix "infra-" pname;
     in

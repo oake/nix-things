@@ -24,11 +24,7 @@ let
     ${lib.optionalString (cfg.hub.githubTokenFile != null) ''
       export GITHUB_TOKEN="$(cat "$CREDENTIALS_DIRECTORY/github-token")"
     ''}
-    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort} -oai-base-url ${lib.escapeShellArg cfg.hub.oaiBaseUrl} ${
-      lib.optionalString (
-        cfg.hub.oaiTokenFile != null
-      ) ''-oai-token-file "$CREDENTIALS_DIRECTORY/oai-token"''
-    }
+    exec ${pkgs.infra-hub}/bin/infra-hub -data /var/lib/infra-hub -http-port ${toString cfg.hub.httpPort}
   '';
 in
 {
@@ -46,16 +42,6 @@ in
         type = types.port;
         default = 8787;
         description = "HTTP port. The hub listens on 0.0.0.0.";
-      };
-      oaiTokenFile = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "Runtime OpenAI token file for stored failed-check summaries.";
-      };
-      oaiBaseUrl = mkOption {
-        type = types.str;
-        default = "https://api.openai.com/v1";
-        description = "OpenAI-compatible API base URL.";
       };
       githubTokenFile = mkOption {
         type = types.nullOr types.str;
@@ -195,9 +181,9 @@ in
           Group = "infra-hub";
           StateDirectory = "infra-hub";
           ExecStart = hubCommand;
-          LoadCredential =
-            lib.optional (cfg.hub.githubTokenFile != null) "github-token:${cfg.hub.githubTokenFile}"
-            ++ lib.optional (cfg.hub.oaiTokenFile != null) "oai-token:${cfg.hub.oaiTokenFile}";
+          LoadCredential = lib.optional (
+            cfg.hub.githubTokenFile != null
+          ) "github-token:${cfg.hub.githubTokenFile}";
           Restart = "on-failure";
           NoNewPrivileges = true;
           ProtectSystem = "strict";
