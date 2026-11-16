@@ -1,0 +1,40 @@
+--- a/libs/cua-driver/rust/crates/cua-driver/src/bundle.rs
++++ b/libs/cua-driver/rust/crates/cua-driver/src/bundle.rs
+@@ -86,7 +86,22 @@
+
+ #[cfg(target_os = "macos")]
+ pub fn app_bundle_path() -> String {
+-    format!("/Applications/{}.app", app_name())
++    std::env::current_exe()
++        .ok()
++        .and_then(|path| std::fs::canonicalize(path).ok())
++        .and_then(|path| containing_app_bundle(&path).map(Path::to_path_buf))
++        .map(|path| path.to_string_lossy().into_owned())
++        .unwrap_or_else(|| format!("/Applications/{}.app", app_name()))
++}
++
++#[cfg(target_os = "macos")]
++fn containing_app_bundle(executable: &Path) -> Option<&Path> {
++    executable.ancestors().find(|path| {
++        matches!(
++            path.file_name().and_then(|name| name.to_str()),
++            Some("CuaDriver.app" | "CuaDriverLocal.app")
++        )
++    })
+ }
+
+ #[cfg(target_os = "macos")]
+--- a/libs/cua-driver/rust/crates/cua-driver/src/cli.rs
++++ b/libs/cua-driver/rust/crates/cua-driver/src/cli.rs
+@@ -5550,6 +5550,11 @@
+     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+     let mut lines = vec!["## install layout".to_owned()];
+
++    #[cfg(target_os = "macos")]
++    let bundle_path = crate::bundle::app_bundle_path();
++    #[cfg(target_os = "macos")]
++    let app_path = bundle_path.as_str();
++    #[cfg(not(target_os = "macos"))]
+     let app_path = "/Applications/CuaDriver.app";
+     let app_exists = std::path::Path::new(app_path).exists();
+     lines.push(format!("bundle:  {app_path}   exists={app_exists}"));

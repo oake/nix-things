@@ -1,0 +1,270 @@
+--- a/libs/cua-driver/rust/crates/cua-driver/src/cli.rs
++++ b/libs/cua-driver/rust/crates/cua-driver/src/cli.rs
+@@ -1292,6 +1292,7 @@
+ const UNLISTED_OPTIONS: &[(&str, &str, bool)] = &[
+     // Internal embedded-host lifetime contract (`EmbeddedCuaDriverHost`).
+     ("serve", "--parent-liveness-stdio", false),
++    ("serve", "--mcp-lifetime", false),
+     // Removed picture-in-picture preview, still accepted and ignored.
+     ("serve", "--experimental-pip", false),
+     ("serve", "--experimental-pip-geometry", true),
+@@ -1623,6 +1624,7 @@
+         &state,
+         experimental_history,
+         true,
++        false,
+     )
+ }
+ 
+@@ -1647,6 +1649,7 @@
+     state: &crate::history_runtime::DaemonLaunchState,
+     experimental_history: bool,
+     _allow_managed_restart: bool,
++    mcp_lifetime: bool,
+ ) -> Result<(), LaunchDaemonError> {
+     use std::process::{Command as Cmd, Stdio};
+ 
+@@ -1665,7 +1668,10 @@
+     // than one copy is registered (for example `/Applications` and
+     // `~/Applications`), LaunchServices may otherwise pick a different copy
+     // than the one this CLI belongs to, with different TCC grants.
+-    let open_args = daemon_launch_arguments(&app_path, socket_path, state, experimental_history);
++    let mut open_args = daemon_launch_arguments(&app_path, socket_path, state, experimental_history);
++    if mcp_lifetime {
++        open_args.push("--mcp-lifetime".to_owned());
++    }
+     // `daemon_launch_arguments` keeps forwarding the legacy compatibility flag
+     // so existing launch configurations behave the same across proxy and
+     // in-process paths. It currently has no tool-surface effect.
+@@ -1724,6 +1730,7 @@
+     state: &crate::history_runtime::DaemonLaunchState,
+     experimental_history: bool,
+     allow_managed_restart: bool,
++    _mcp_lifetime: bool,
+ ) -> Result<(), LaunchDaemonError> {
+     let executable = std::env::current_exe().map_err(|error| LaunchDaemonError {
+         kind: LaunchDaemonErrorKind::Failed,
+@@ -2018,12 +2025,44 @@
+ 
+     let already_running = crate::serve::is_daemon_listening(&socket_path);
+     if already_running && !grants.is_empty() {
+-        if let Some(on_startup) = on_startup.take() {
+-            on_startup(McpDaemonStartup::AlreadyRunning, false);
+-        }
+-        anyhow::bail!(
+-            "--grant configures a newly launched runtime and cannot modify the daemon already listening on {socket_path}; restart it with the same --grant option"
+-        );
++        let validation = (|| -> anyhow::Result<()> {
++            cua_driver_core::authorization::configure_launch_grants(grants)
++                .map_err(anyhow::Error::msg)?;
++            let response = crate::serve::send_request(
++                &socket_path,
++                &crate::serve::DaemonRequest {
++                    method: "authorization_status".to_owned(),
++                    name: None,
++                    args: None,
++                    session_id: None,
++                    observation_origin: None,
++                    client_kind: None,
++                },
++            )?;
++            let status = response.result.filter(|_| response.ok).ok_or_else(|| {
++                anyhow::anyhow!("could not inspect daemon launch grants: {:?}", response.error)
++            })?;
++            let Some(active) = status["launch_grants"].as_array() else {
++                anyhow::bail!(
++                    "daemon on {socket_path} cannot report its launch grants; stop it once with `cua-driver stop` and retry"
++                );
++            };
++            for grant in grants {
++                let normalized = grant.trim().replace('-', "_");
++                if !active.iter().any(|value| value.as_str() == Some(&normalized)) {
++                    anyhow::bail!(
++                        "daemon on {socket_path} lacks --grant {grant}; stop it with `cua-driver stop` and retry with the requested grants"
++                    );
++                }
++            }
++            Ok(())
++        })();
++        if let Err(error) = validation {
++            if let Some(on_startup) = on_startup.take() {
++                on_startup(McpDaemonStartup::AlreadyRunning, false);
++            }
++            return Err(error);
++        }
+     }
+     let mut daemon = McpDaemonStartup::AlreadyRunning;
+     if !already_running {
+@@ -2041,12 +2080,10 @@
+         }
+         #[cfg(target_os = "macos")]
+         let experimental_history = {
+-            let app_name = crate::bundle::app_name();
+             eprintln!(
+-                "{}: mcp launched without {app_name}.app's TCC grants; \
+-                 auto-launching the installed {app_name}.app daemon \
+-                 and proxying MCP requests through it.",
+-                crate::bundle::cli_name()
++                "{}: launching {} for macOS permissions; daemon exits when its last MCP client disconnects.",
++                crate::bundle::cli_name(),
++                crate::bundle::app_bundle_path()
+             );
+             crate::history_runtime::preview_admitted_preference()
+         };
+@@ -2066,12 +2103,18 @@
+             }
+             true
+         };
+-        if let Err(error) = launch_daemon_and_wait(
++        let state = crate::history_runtime::DaemonLaunchState {
++            claude_code_compat,
++            grants: grants.to_vec(),
++            ..Default::default()
++        };
++        if let Err(error) = launch_daemon_with_state_and_wait(
+             &socket_path,
+             10,
+-            claude_code_compat,
+-            grants,
++            &state,
+             experimental_history,
++            true,
++            true,
+         ) {
+             if let Some(on_startup) = on_startup.take() {
+                 on_startup(
+@@ -3022,6 +3065,7 @@
+                 &prior_daemon_state,
+                 true,
+                 false,
++                false,
+             ) {
+                 rollback_history_preview(
+                     &socket_path,
+@@ -3168,7 +3212,7 @@
+     let _ = stop_history_daemon(socket_path);
+     if prior_daemon_was_running && !crate::serve::is_daemon_listening(socket_path) {
+         let _ =
+-            launch_daemon_with_state_and_wait(socket_path, 15, prior_daemon_state, false, false);
++            launch_daemon_with_state_and_wait(socket_path, 15, prior_daemon_state, false, false, false);
+     }
+ }
+ 
+--- a/libs/cua-driver/rust/crates/cua-driver/src/serve.rs
++++ b/libs/cua-driver/rust/crates/cua-driver/src/serve.rs
+@@ -31,6 +31,38 @@
+     is_daemon_listening, send_request, socket_path_for_namespace, DaemonRequest, DaemonResponse,
+     ToolObservationOrigin,
+ };
++
++#[cfg(unix)]
++struct McpDaemonLifetime {
++    enabled: bool,
++    connected: std::sync::atomic::AtomicBool,
++    clients: std::sync::atomic::AtomicUsize,
++    disconnected: tokio::sync::Notify,
++}
++
++#[cfg(unix)]
++impl McpDaemonLifetime {
++    fn connect(self: &std::sync::Arc<Self>) -> Option<McpDaemonConnection> {
++        if !self.enabled {
++            return None;
++        }
++        self.clients.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++        self.connected.store(true, std::sync::atomic::Ordering::SeqCst);
++        Some(McpDaemonConnection(self.clone()))
++    }
++}
++
++#[cfg(unix)]
++struct McpDaemonConnection(std::sync::Arc<McpDaemonLifetime>);
++
++#[cfg(unix)]
++impl Drop for McpDaemonConnection {
++    fn drop(&mut self) {
++        if self.0.clients.fetch_sub(1, std::sync::atomic::Ordering::SeqCst) == 1 {
++            self.0.disconnected.notify_one();
++        }
++    }
++}
+ 
+ static ACTIVE_PROXY_SESSIONS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+ 
+@@ -1071,6 +1103,14 @@
+         }
+     };
+     tokio::pin!(parent_liveness);
++    let mcp_lifetime = std::sync::Arc::new(McpDaemonLifetime {
++        enabled: std::env::args().any(|arg| arg == "--mcp-lifetime"),
++        connected: std::sync::atomic::AtomicBool::new(false),
++        clients: std::sync::atomic::AtomicUsize::new(0),
++        disconnected: tokio::sync::Notify::new(),
++    });
++    let mcp_startup_timeout = tokio::time::sleep(std::time::Duration::from_secs(30));
++    tokio::pin!(mcp_startup_timeout);
+ 
+     // Idle-session and recording maintenance is owned by the SDK runtime so
+     // direct embedded applications and daemon-backed clients behave alike.
+@@ -1097,6 +1137,7 @@
+                 let history_cli_executable_path = history_cli_executable_path(&stream).ok();
+                 let reg = sdk.clone();
+                 let shutdown_tx2 = shutdown_tx.clone();
++                let mcp_lifetime = mcp_lifetime.clone();
+                 let trusted_resume_registry = trusted_resume_registry.clone();
+ 
+                 connection_tasks.spawn(async move {
+@@ -1110,6 +1151,7 @@
+                     // connection EOFs (graceful proxy exit OR kill -9, both
+                     // kernel-guaranteed), the post-loop block reaps the session.
+                     let mut control_session_id: Option<String> = None;
++                    let mut mcp_connection = None;
+                     let mut trusted_session: Option<TrustedConnectionSession> = None;
+ 
+                     while let Ok(Some(line)) = lines.next_line().await {
+@@ -1135,6 +1177,7 @@
+                             "mcp_envelope_stream" if control_session_id.is_none() && trusted_session.is_none() => {
+                                 // Existing local-peer authentication already passed.
+                                 // Registry and session lifetime belong to this stream.
++                                let _mcp_connection = mcp_lifetime.connect();
+                                 let _ = crate::mcp_envelope::accept(reg.clone(), lines.into_inner(), writer).await;
+                                 return;
+                             }
+@@ -1402,6 +1445,9 @@
+                                 // the ONLY place a connection is marked control;
+                                 // per-call connections never send this. ACK ok.
+                                 if let Some(sid) = req.session_id.as_deref() {
++                                    if mcp_connection.is_none() {
++                                        mcp_connection = mcp_lifetime.connect();
++                                    }
+                                     control_session_id = Some(sid.to_owned());
+                                     active_proxy_sessions()
+                                         .lock()
+@@ -1466,6 +1512,17 @@
+                         detach_trusted_connection(&trusted_resume_registry, connection).await;
+                     }
+                 });
++            }
++            _ = mcp_lifetime.disconnected.notified(), if mcp_lifetime.enabled => {
++                if mcp_lifetime.clients.load(std::sync::atomic::Ordering::SeqCst) == 0 {
++                    eprintln!("Last MCP client disconnected; shutting down Cua Driver daemon.");
++                    break;
++                }
++            }
++            _ = &mut mcp_startup_timeout, if mcp_lifetime.enabled
++                && !mcp_lifetime.connected.load(std::sync::atomic::Ordering::SeqCst) => {
++                eprintln!("No MCP client connected within 30s; shutting down Cua Driver daemon.");
++                break;
+             }
+             _ = &mut shutdown_rx => {
+                 eprintln!("Cua Driver daemon shutting down.");
+--- a/libs/cua-driver/rust/crates/cua-driver-core/src/authorization.rs
++++ b/libs/cua-driver/rust/crates/cua-driver-core/src/authorization.rs
+@@ -1430,6 +1430,7 @@
+     let mut status = serde_json::json!({
+         "permission_mode": mode.as_ref().map(|mode| mode.as_str()).ok(),
+         "permission_mode_valid": mode.is_ok(),
++        "launch_grants": LAUNCH_GRANTS.get().cloned().unwrap_or_default(),
+         "permission_mode_source": if std::env::var_os(PERMISSION_MODE_ENV).is_some() {
+             "trusted_startup_configuration"
+         } else {
