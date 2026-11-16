@@ -1,13 +1,13 @@
 { pkgs, pname }:
 pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "3.0.1";
+  version = "3.0.2";
 
   src = pkgs.fetchFromGitHub {
     owner = "aklofas";
     repo = "kicad-happy";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-mV0ehcqPC6Z5fN8VLsTOJ3z5tAdABt5HlM5z/f9wVcA=";
+    hash = "sha256-A+qas/v9fAoGuCEVSHO5V8hOeJKMSNHwsLBfznVfDss=";
   };
 
   dontConfigure = true;
