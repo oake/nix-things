@@ -7,18 +7,18 @@ let
 in
 pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   inherit pname;
-  version = "0.52.8";
+  version = "0.52.9";
 
   src = pkgs.fetchFromGitHub {
     owner = "trycua";
     repo = "cua";
     tag = "cua-driver-rs-v${finalAttrs.version}";
-    hash = "sha256-w8Dq/z7MCu+RWEddv6UHWBO4DTmv3Iud7JSqV3micPE=";
+    hash = "sha256-V8Xd3hQhME3o1wqvjc1ulcPIwdwvSWR0+LyQN14Cecs=";
   };
 
   cargoRoot = "libs/cua-driver/rust";
   buildAndTestSubdir = "libs/cua-driver/rust";
-  cargoHash = "sha256-kwIE1lpFs1FSEgE9ZEg+s85pyvCZNaW9DG6jSQiIt4s=";
+  cargoHash = "sha256-5j3KJRICX/Or4gnF7HmZeQnXmULafI8jOoeaR2MbBLk=";
 
   patches = [
     ./relocatable-app.patch
