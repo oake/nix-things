@@ -9,12 +9,12 @@ let
     buildGoModule
     buildNpmPackage
     ;
-  version = "0-unstable-2026-11-15";
+  version = "0-unstable-2026-11-18";
   src = fetchFromGitHub {
     owner = "slopster67";
     repo = "mcpproxy-go";
-    rev = "bc7e639d6913dd15a4ffb4ac0ac815e7c8ef731b";
-    hash = "sha256-4/ScK7Ae1IxVdLjBRb2hAatj0DyzFVgUD31GsEcjaPA=";
+    rev = "1409c0890fcfa22b72de51d2ae0b3df9fc9a7535";
+    hash = "sha256-O2tyz7lIAe40wqYF+9ifA4PnOZNgh57ykEgqRryQdpA=";
   };
   frontend = buildNpmPackage {
     pname = "${pname}-frontend";
