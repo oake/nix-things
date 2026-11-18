@@ -23,7 +23,6 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
 
   patches = lib.optionals isDarwin [
     ./relocatable-app.patch
-    ./helium-macos.patch
     ./daemon-lifecycle.patch
   ];
 

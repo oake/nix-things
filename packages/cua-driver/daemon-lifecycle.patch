@@ -191,10 +191,10 @@
  
  static ACTIVE_PROXY_SESSIONS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
  
-@@ -1071,6 +1103,14 @@
-         }
+@@ -1097,6 +1129,14 @@
+         std::future::pending::<()>().await;
      };
-     tokio::pin!(parent_liveness);
+     tokio::pin!(executable_replaced);
 +    let mcp_lifetime = std::sync::Arc::new(McpDaemonLifetime {
 +        enabled: std::env::args().any(|arg| arg == "--mcp-lifetime"),
 +        connected: std::sync::atomic::AtomicBool::new(false),
@@ -206,7 +206,7 @@
  
      // Idle-session and recording maintenance is owned by the SDK runtime so
      // direct embedded applications and daemon-backed clients behave alike.
-@@ -1097,6 +1137,7 @@
+@@ -1123,6 +1163,7 @@
                  let history_cli_executable_path = history_cli_executable_path(&stream).ok();
                  let reg = sdk.clone();
                  let shutdown_tx2 = shutdown_tx.clone();
@@ -214,7 +214,7 @@
                  let trusted_resume_registry = trusted_resume_registry.clone();
  
                  connection_tasks.spawn(async move {
-@@ -1110,6 +1151,7 @@
+@@ -1136,6 +1177,7 @@
                      // connection EOFs (graceful proxy exit OR kill -9, both
                      // kernel-guaranteed), the post-loop block reaps the session.
                      let mut control_session_id: Option<String> = None;
@@ -222,7 +222,7 @@
                      let mut trusted_session: Option<TrustedConnectionSession> = None;
  
                      while let Ok(Some(line)) = lines.next_line().await {
-@@ -1135,6 +1177,7 @@
+@@ -1161,6 +1203,7 @@
                              "mcp_envelope_stream" if control_session_id.is_none() && trusted_session.is_none() => {
                                  // Existing local-peer authentication already passed.
                                  // Registry and session lifetime belong to this stream.
@@ -230,7 +230,7 @@
                                  let _ = crate::mcp_envelope::accept(reg.clone(), lines.into_inner(), writer).await;
                                  return;
                              }
-@@ -1402,6 +1445,9 @@
+@@ -1428,6 +1471,9 @@
                                  // the ONLY place a connection is marked control;
                                  // per-call connections never send this. ACK ok.
                                  if let Some(sid) = req.session_id.as_deref() {
@@ -240,11 +240,10 @@
                                      control_session_id = Some(sid.to_owned());
                                      active_proxy_sessions()
                                          .lock()
-@@ -1466,6 +1512,17 @@
-                         detach_trusted_connection(&trusted_resume_registry, connection).await;
+@@ -1493,6 +1539,17 @@
                      }
                  });
-+            }
+             }
 +            _ = mcp_lifetime.disconnected.notified(), if mcp_lifetime.enabled => {
 +                if mcp_lifetime.clients.load(std::sync::atomic::Ordering::SeqCst) == 0 {
 +                    eprintln!("Last MCP client disconnected; shutting down Cua Driver daemon.");
@@ -255,9 +254,10 @@
 +                && !mcp_lifetime.connected.load(std::sync::atomic::Ordering::SeqCst) => {
 +                eprintln!("No MCP client connected within 30s; shutting down Cua Driver daemon.");
 +                break;
-             }
++            }
              _ = &mut shutdown_rx => {
                  eprintln!("Cua Driver daemon shutting down.");
+                 break;
 --- a/libs/cua-driver/rust/crates/cua-driver-core/src/authorization.rs
 +++ b/libs/cua-driver/rust/crates/cua-driver-core/src/authorization.rs
 @@ -1430,6 +1430,7 @@
