@@ -8,22 +8,21 @@ let
 in
 pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   inherit pname;
-  version = "0.53.2";
+  version = "0.54.0";
 
   src = pkgs.fetchFromGitHub {
     owner = "trycua";
     repo = "cua";
     tag = "cua-driver-rs-v${finalAttrs.version}";
-    hash = "sha256-1ipjzmL8Gmvf2g3bExDAVlQM5BnLvQDXIXHLcXCqNtA=";
+    hash = "sha256-arBs2zxL0xG1YNw5uS96k6xME8iRKIoORL8vm5vr21s=";
   };
 
   cargoRoot = "libs/cua-driver/rust";
   buildAndTestSubdir = "libs/cua-driver/rust";
-  cargoHash = "sha256-xazdKM9X/zAQjvIXmLDnZLbdzpJMdphWrSM4vwsyC1Y=";
+  cargoHash = "sha256-3e0xL1GMNtdl31op1v8WgNO2sUVZPhYbDGhvZtxHA9M=";
 
   patches = lib.optionals isDarwin [
     ./relocatable-app.patch
-    ./helium-macos.patch
     ./daemon-lifecycle.patch
   ];
 
