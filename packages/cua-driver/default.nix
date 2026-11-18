@@ -8,18 +8,18 @@ let
 in
 pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   inherit pname;
-  version = "0.52.9";
+  version = "0.53.2";
 
   src = pkgs.fetchFromGitHub {
     owner = "trycua";
     repo = "cua";
     tag = "cua-driver-rs-v${finalAttrs.version}";
-    hash = "sha256-V8Xd3hQhME3o1wqvjc1ulcPIwdwvSWR0+LyQN14Cecs=";
+    hash = "sha256-1ipjzmL8Gmvf2g3bExDAVlQM5BnLvQDXIXHLcXCqNtA=";
   };
 
   cargoRoot = "libs/cua-driver/rust";
   buildAndTestSubdir = "libs/cua-driver/rust";
-  cargoHash = "sha256-5j3KJRICX/Or4gnF7HmZeQnXmULafI8jOoeaR2MbBLk=";
+  cargoHash = "sha256-xazdKM9X/zAQjvIXmLDnZLbdzpJMdphWrSM4vwsyC1Y=";
 
   patches = lib.optionals isDarwin [
     ./relocatable-app.patch
