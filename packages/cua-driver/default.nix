@@ -3,7 +3,8 @@
   pname,
 }:
 let
-  inherit (pkgs) lib;
+  inherit (pkgs) lib stdenv;
+  inherit (stdenv.hostPlatform) isDarwin isLinux;
 in
 pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   inherit pname;
@@ -20,7 +21,7 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   buildAndTestSubdir = "libs/cua-driver/rust";
   cargoHash = "sha256-5j3KJRICX/Or4gnF7HmZeQnXmULafI8jOoeaR2MbBLk=";
 
-  patches = [
+  patches = lib.optionals isDarwin [
     ./relocatable-app.patch
     ./helium-macos.patch
     ./daemon-lifecycle.patch
@@ -28,6 +29,8 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
 
   nativeBuildInputs = [
     pkgs.pkg-config
+  ]
+  ++ lib.optionals isDarwin [
     pkgs.rcodesign
     pkgs.re-plistbuddy
     pkgs.swiftpm
@@ -35,16 +38,30 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
       enableRepl = false;
       enableSourceKitLSP = false;
     })
-  ];
-  buildInputs = [
-    pkgs.apple-sdk_26
-    pkgs.zstd
+  ]
+  ++ lib.optionals isLinux [
+    pkgs.rustPlatform.bindgenHook
   ];
 
+  buildInputs =
+    lib.optional isDarwin pkgs.apple-sdk_26
+    ++ [ pkgs.zstd ]
+    ++ lib.optionals isLinux [
+      pkgs.libx11
+      pkgs.libxi
+      pkgs.libxtst
+      pkgs.libxext
+      pkgs.pipewire
+      pkgs.libei
+      pkgs.libxkbcommon
+    ];
+
   env = {
-    MACOSX_DEPLOYMENT_TARGET = "14.0";
     CARGO_PROFILE_RELEASE_LTO = "thin";
     CUA_DRIVER_GIT_SHA = finalAttrs.src.tag;
+  }
+  // lib.optionalAttrs isDarwin {
+    MACOSX_DEPLOYMENT_TARGET = "14.0";
   };
 
   cargoBuildFlags = [
@@ -52,12 +69,16 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     "cua-driver"
     "-p"
     "cursor-theme-cli"
+  ]
+  ++ lib.optionals isLinux [
+    "--features"
+    "cua-driver/portal-input,cua-driver/portal-capture"
   ];
 
   doCheck = false;
-  dontUseSwiftpmBuild = true;
+  dontUseSwiftpmBuild = isDarwin;
 
-  installPhase = ''
+  installPhase = lib.optionalString isDarwin ''
     runHook preInstall
 
     app="$out/Applications/CuaDriver.app"
@@ -75,9 +96,13 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     runHook postInstall
   '';
 
-  postFixup = ''
-    rcodesign sign --timestamp-url none "$out/Applications/CuaDriver.app"
-  '';
+  postFixup =
+    lib.optionalString isDarwin ''
+      rcodesign sign --timestamp-url none "$out/Applications/CuaDriver.app"
+    ''
+    + lib.optionalString isLinux ''
+      patchelf --add-rpath ${lib.makeLibraryPath [ pkgs.pipewire ]} "$out/bin/cua-driver"
+    '';
 
   passthru.updateScript = pkgs.nix-update-script {
     extraArgs = [
@@ -95,6 +120,10 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     changelog = "https://github.com/trycua/cua/releases/tag/cua-driver-rs-v${finalAttrs.version}";
     license = lib.licenses.mit;
     mainProgram = "cua-driver";
-    platforms = [ "aarch64-darwin" ];
+    platforms = [
+      "aarch64-darwin"
+      "aarch64-linux"
+      "x86_64-linux"
+    ];
   };
 })
