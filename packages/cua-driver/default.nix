@@ -96,20 +96,11 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     runHook postInstall
   '';
 
-  postInstall =
-    if isLinux then
-      ''
-        install -Dm644 LICENSE.md "$out/share/doc/${pname}/LICENSE.md"
-      ''
-    else
-      null;
-
   postFixup =
     lib.optionalString isDarwin ''
       rcodesign sign --timestamp-url none "$out/Applications/CuaDriver.app"
     ''
     + lib.optionalString isLinux ''
-      # The ScreenCast portal loads PipeWire at runtime.
       patchelf --add-rpath ${lib.makeLibraryPath [ pkgs.pipewire ]} "$out/bin/cua-driver"
     '';
 
