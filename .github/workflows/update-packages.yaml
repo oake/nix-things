@@ -59,6 +59,8 @@ jobs:
 
       - name: Update package
         id: update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           result=$(nix run .#update-thing -- "$ATTRIBUTE")
           echo "result=$result" >> "$GITHUB_OUTPUT"

@@ -23,11 +23,7 @@ stdenvNoCC.mkDerivation {
     cp -r desktoppr "$out/bin"
   '';
 
-  passthru.updateScript = [
-    ./update.sh
-    ../../lib/update-source.sh
-    ./default.nix
-  ];
+  passthru.updateScript = null;
 
   meta = with lib; {
     description = "Simple command line tool to set the desktop picture on macOS";
