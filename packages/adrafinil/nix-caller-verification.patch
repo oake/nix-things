@@ -1,9 +1,8 @@
 diff --git a/AdrafinilShared/Sources/AdrafinilShared/IPC/CallerVerifier.swift b/AdrafinilShared/Sources/AdrafinilShared/IPC/CallerVerifier.swift
-index 0c66b0a..f7cfe4d 100644
+index 0c66b0a..0596bca 100644
 --- a/AdrafinilShared/Sources/AdrafinilShared/IPC/CallerVerifier.swift
 +++ b/AdrafinilShared/Sources/AdrafinilShared/IPC/CallerVerifier.swift
-@@ -1,147 +1,37 @@
-+@@ -1,122 +1,36 @@
+@@ -1,147 +1,36 @@
  import Foundation
  import Security
  
