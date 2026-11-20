@@ -11,7 +11,7 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "0.1.10";
+  version = "0.1.11";
   strictDeps = true;
   __structuredAttrs = true;
 
@@ -19,7 +19,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "pingdotgg";
     repo = "t3code";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-zhScbDGW+bD2T7++YRUPY/y83SGE2080LxcGw3Txrso=";
+    hash = "sha256-oI8gyTWFgtTmVK+0cVQaEcfO8EzxUUOW5s8JFG/z/U8=";
   };
 
   postPatch = ''
@@ -72,7 +72,7 @@ stdenv.mkDerivation (finalAttrs: {
       pnpmWorkspaces
       ;
     fetcherVersion = 5;
-    hash = "sha256-IkcGAo4w0aQJjvdWL3bMlDmUx37oRyGJYcr4yyMwAh4=";
+    hash = "sha256-YzDGA+eBAkAbbKGkfmWploOb7F3MH3DVsvlA1wMzXUs=";
   };
 
   buildPhase = ''
