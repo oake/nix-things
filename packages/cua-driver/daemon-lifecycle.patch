@@ -111,28 +111,26 @@
              );
              crate::history_runtime::preview_admitted_preference()
          };
-@@ -2066,12 +2103,18 @@
+@@ -2047,7 +2084,18 @@
              }
              true
          };
--        if let Err(error) = launch_daemon_and_wait(
+-        if let Err(error) = launch_daemon_and_wait(&socket_path, 10, grants, experimental_history) {
 +        let state = crate::history_runtime::DaemonLaunchState {
-+            claude_code_compat,
 +            grants: grants.to_vec(),
 +            ..Default::default()
 +        };
 +        if let Err(error) = launch_daemon_with_state_and_wait(
-             &socket_path,
-             10,
--            claude_code_compat,
--            grants,
++            &socket_path,
++            10,
 +            &state,
-             experimental_history,
++            experimental_history,
 +            true,
 +            true,
-         ) {
++        ) {
              if let Some(on_startup) = on_startup.take() {
                  on_startup(
+                     if error.kind == LaunchDaemonErrorKind::Timeout {
 @@ -3022,6 +3065,7 @@
                  &prior_daemon_state,
                  true,
