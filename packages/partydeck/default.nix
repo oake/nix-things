@@ -107,8 +107,6 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
       --add-flags '--kwin --fullscreen'
   '';
 
-  passthru.updateScript = [ ./update.sh ];
-
   meta = {
     description = "Split-screen game launcher for Linux and SteamOS";
     homepage = "https://github.com/partydeck/partydeck";
