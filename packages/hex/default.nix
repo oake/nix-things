@@ -41,6 +41,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   '';
 
   passthru.updateScript = [
+    ./update.sh
     ../../lib/update-source.sh
     ./default.nix
   ];
