@@ -50,7 +50,13 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     wayland
   ];
 
+  patches = [ ./scout-runtime.patch ];
+
   postPatch = ''
+    # Scout and the games it launches use standard Linux interpreter paths.
+    substituteInPlace src/launch.rs \
+      --replace-fail '@steamRun@' '${lib.getExe pkgs.steam-run}'
+
     substituteInPlace src/paths.rs \
       --replace-fail 'PathBuf::from("/usr/share/partydeck")' \
       "PathBuf::from(\"$out/share/partydeck\")"

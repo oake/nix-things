@@ -1,0 +1,42 @@
+diff --git a/src/launch.rs b/src/launch.rs
+--- a/src/launch.rs
++++ b/src/launch.rs
+@@ -112,8 +112,22 @@
+         return Err("gamescope not found in PATH. Please install gamescope through your distro's package manager.".into());
+     }
+
+-    if (runtime == "scout" && !PATH_STEAM.join("bin32/steam-runtime/run.sh").exists())
+-        || (runtime == "soldier"
++    let scout_entrypoint = if runtime == "scout" {
++        Some(
++            [
++                "bin32/steam-runtime/run.sh",
++                "steam/steamapps/common/SteamLinuxRuntime/steam-runtime/run.sh",
++            ]
++            .into_iter()
++            .map(|path| PATH_STEAM.join(path))
++            .find(|path| path.is_file())
++            .ok_or("Steam Runtime scout not found! Runtime must be installed on the same drive that the Steam client is installed on.")?,
++        )
++    } else {
++        None
++    };
++
++    if (runtime == "soldier"
+             && !PATH_STEAM
+                 .join("steam/steamapps/common/SteamLinuxRuntime_soldier")
+                 .exists())
+@@ -351,11 +365,10 @@
+         // Runtime
+         if win {
+             cmd.arg(&*BIN_UMU_RUN);
++        } else if let Some(entrypoint) = &scout_entrypoint {
++            cmd.arg("@steamRun@").arg(entrypoint);
+         } else {
+             match runtime {
+-                "scout" => {
+-                    cmd.arg(PATH_STEAM.join("bin32/steam-runtime/run.sh"));
+-                }
+                 "soldier" => {
+                     cmd.arg(
+                         PATH_STEAM.join(
