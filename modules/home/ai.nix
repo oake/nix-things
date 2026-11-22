@@ -29,8 +29,6 @@ let
   };
 in
 {
-  imports = [ ./grok-build ];
-
   options.programs.ai = {
     enable = lib.mkEnableOption "shared AI harness configuration";
 
