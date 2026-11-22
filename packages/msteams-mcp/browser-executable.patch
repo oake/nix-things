@@ -8,7 +8,7 @@
 +      : await chromium.launchPersistentContext(BROWSER_PROFILE_DIR, {
 +        ...options,
 +        channel: browser,
-+        executablePath: browser === 'msedge' ? process.env.TEAMS_BROWSER_EXECUTABLE : undefined,
++        executablePath: process.env.TEAMS_BROWSER_EXECUTABLE,
 +      });
 
      // Persistent contexts start with one page; use it or create one

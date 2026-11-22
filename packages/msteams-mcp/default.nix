@@ -7,8 +7,6 @@ let
     buildNpmPackage
     fetchFromGitHub
     lib
-    makeWrapper
-    microsoft-edge
     ;
 in
 buildNpmPackage (finalAttrs: {
@@ -24,17 +22,7 @@ buildNpmPackage (finalAttrs: {
 
   npmDepsHash = "sha256-+ZcC7O9Pbsbgc1ky8zcZS3pCItT52tJccsvAAtipIxE=";
 
-  patches = [ ./edge-executable.patch ];
-
-  nativeBuildInputs = [ makeWrapper ];
-
-  postInstall = ''
-    for program in msteams msteams-mcp; do
-      wrapProgram "$out/bin/$program" \
-        --set-default TEAMS_BROWSER msedge \
-        --set-default TEAMS_BROWSER_EXECUTABLE "${lib.getExe microsoft-edge}"
-    done
-  '';
+  patches = [ ./browser-executable.patch ];
 
   passthru.updateScript = pkgs.nix-update-script { };
 
@@ -43,6 +31,6 @@ buildNpmPackage (finalAttrs: {
     homepage = "https://github.com/m0nkmaster/msteams-mcp";
     license = lib.licenses.mit;
     mainProgram = "msteams-mcp";
-    platforms = [ "x86_64-linux" ];
+    platforms = lib.platforms.unix;
   };
 })
