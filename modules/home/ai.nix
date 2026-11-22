@@ -7,11 +7,6 @@
 }:
 let
   cfg = config.programs.ai;
-  skills = lib.listToAttrs (
-    map (
-      path: lib.nameValuePair (baseNameOf (builtins.unsafeDiscardStringContext (toString path))) path
-    ) cfg.skills
-  );
 
   agent =
     enabled: settings:
@@ -19,7 +14,7 @@ let
       {
         enable = true;
         enableMcpIntegration = true;
-        inherit skills;
+        inherit (cfg) skills;
       }
       // settings
     );
@@ -41,9 +36,9 @@ in
     ] lib.mkEnableOption;
 
     skills = lib.mkOption {
-      type = lib.types.listOf lib.types.path;
-      default = [ ];
-      description = "Skill directories shared by the enabled harnesses. Each directory basename is used as the skill name.";
+      type = lib.types.attrsOf lib.types.path;
+      default = { };
+      description = "Named skill directories shared by the enabled harnesses.";
     };
 
     enableMcpProxyIntegration = lib.mkEnableOption "the local MCPProxy server in programs.mcp";
