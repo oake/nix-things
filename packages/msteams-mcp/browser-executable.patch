@@ -1,0 +1,15 @@
+--- a/src/browser/context.ts
++++ b/src/browser/context.ts
+@@ -194,7 +194,11 @@
+     };
+     const context = isFirefox
+       ? await firefox.launchPersistentContext(FIREFOX_PROFILE_DIR, options)
+-      : await chromium.launchPersistentContext(BROWSER_PROFILE_DIR, { ...options, channel: browser });
++      : await chromium.launchPersistentContext(BROWSER_PROFILE_DIR, {
++        ...options,
++        channel: browser,
++        executablePath: process.env.TEAMS_BROWSER_EXECUTABLE,
++      });
+
+     // Persistent contexts start with one page; use it or create one
+     const page = context.pages()[0] ?? await context.newPage();
