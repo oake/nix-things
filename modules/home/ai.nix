@@ -46,8 +46,6 @@ in
 
   config = lib.mkIf cfg.enable (
     {
-      home.packages = [ pkgs.python3 ];
-
       programs = {
         mcp = lib.mkIf cfg.enableMcpProxyIntegration {
           enable = true;
