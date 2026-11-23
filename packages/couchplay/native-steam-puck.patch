@@ -1,0 +1,632 @@
+diff --git a/src/core/GamescopeInstance.cpp b/src/core/GamescopeInstance.cpp
+index f924b7a..fd451d1 100644
+--- a/src/core/GamescopeInstance.cpp
++++ b/src/core/GamescopeInstance.cpp
+@@ -7,6 +7,7 @@
+ #include <QDateTime>
+ #include <QDir>
+ #include <QFile>
++#include <QFileInfo>
+ #include <QUuid>
+
+ #include <csignal>
+@@ -99,12 +100,25 @@ bool GamescopeInstance::start(const QVariantMap &config, int index, const QList<
+     }
+     spec.padNode = config.value(QStringLiteral("padNode")).toString();
+     spec.directDevices = config.value(QStringLiteral("directDevices")).toStringList();
++    spec.extraDeviceNodes = config.value(QStringLiteral("steamControllerNodes")).toStringList();
++    spec.steamInput = !spec.extraDeviceNodes.isEmpty();
+     const QStringList nvidiaNodes =
+         QDir(QStringLiteral("/dev")).entryList({QStringLiteral("nvidia*")}, QDir::System | QDir::Files);
+     for (const QString &node : nvidiaNodes) {
+         spec.extraDeviceNodes << QStringLiteral("/dev/") + node;
+     }
+     spec.mounts = mounts;
++    if (config.value(QStringLiteral("launcherId")).toString() == QLatin1String("steam")) {
++        // NixOS can inject Extest from the Steam wrapper. Its Wayland pointer
++        // backend aborts on Gamescope; nested Steam can use Xwayland's XTEST.
++        const QDir store(QStringLiteral("/nix/store"));
++        for (const QString &package : store.entryList({QStringLiteral("*-extest-*")}, QDir::Dirs)) {
++            const QString library = store.filePath(package + QStringLiteral("/lib/libextest.so"));
++            if (QFileInfo(library).isFile()) {
++                spec.mounts.append({SandboxMount::RoBind, QStringLiteral("/dev/null"), library, {}, {}, {}});
++            }
++        }
++    }
+     for (const QString &entry : buildEnvironment(config)) {
+         const qsizetype equals = entry.indexOf(QLatin1Char('='));
+         if (equals > 0) {
+diff --git a/src/core/PadForwarder.cpp b/src/core/PadForwarder.cpp
+index f943c45..a9115ea 100644
+--- a/src/core/PadForwarder.cpp
++++ b/src/core/PadForwarder.cpp
+@@ -47,7 +47,7 @@ bool PadForwarder::isRunning() const
+     return m_process.state() != QProcess::NotRunning;
+ }
+
+-bool PadForwarder::start(int playerIndex, int timeoutMs)
++bool PadForwarder::start(int playerIndex, int timeoutMs, bool steamInput)
+ {
+     const QString program = programOverride().isEmpty() ? HostProcess::hostLibexecPath(QStringLiteral("couchplay-padfwd"))
+                                                         : programOverride();
+@@ -60,8 +60,13 @@ bool PadForwarder::start(int playerIndex, int timeoutMs)
+     m_pending.clear();
+     m_startError.clear();
+
+-    const QString name = QStringLiteral("CouchPlay P%1 pad").arg(playerIndex + 1);
+-    HostProcess::configure(m_process, program, {QStringLiteral("--name"), name});
++    QStringList args{QStringLiteral("--name"), QStringLiteral("CouchPlay P%1 pad").arg(playerIndex + 1)};
++    if (steamInput) {
++        // SDL derives the Steam Input slot number from the pad name.
++        args[1] += QStringLiteral(" 0");
++        args.append(QStringLiteral("--steam-input"));
++    }
++    HostProcess::configure(m_process, program, args);
+     m_process.start();
+     if (!m_process.waitForStarted(timeoutMs)) {
+         Q_EMIT errorOccurred(QStringLiteral("Could not start couchplay-padfwd: %1").arg(m_process.errorString()));
+@@ -137,6 +142,11 @@ void PadForwarder::attach(const QString &devicePath)
+     sendLine(QStringLiteral("attach ") + devicePath);
+ }
+
++void PadForwarder::attachSteamOutput(const QString &devicePath, const QString &sysname)
++{
++    sendLine(QStringLiteral("attach-steam ") + devicePath + QLatin1Char(' ') + sysname);
++}
++
+ void PadForwarder::detach(const QString &devicePath)
+ {
+     sendLine(QStringLiteral("detach ") + devicePath);
+diff --git a/src/core/PadForwarder.h b/src/core/PadForwarder.h
+index e81c627..ee23539 100644
+--- a/src/core/PadForwarder.h
++++ b/src/core/PadForwarder.h
+@@ -23,7 +23,7 @@ public:
+     ~PadForwarder() override;
+
+     /** Start the tool and wait (blocking) for `ready`. On failure emits errorOccurred and returns false. */
+-    bool start(int playerIndex, int timeoutMs = 5000);
++    bool start(int playerIndex, int timeoutMs = 5000, bool steamInput = false);
+
+     /** Host path of the virtual pad's event node ("" before start). */
+     QString node() const
+@@ -34,6 +34,7 @@ public:
+     bool isRunning() const;
+
+     void attach(const QString &devicePath);
++    void attachSteamOutput(const QString &devicePath, const QString &sysname);
+     void detach(const QString &devicePath);
+
+     /** Close stdin (the tool destroys the pad), then kill if it lingers. */
+diff --git a/src/core/SandboxCommand.cpp b/src/core/SandboxCommand.cpp
+index a4cf2bd..4b30b4e 100644
+--- a/src/core/SandboxCommand.cpp
++++ b/src/core/SandboxCommand.cpp
+@@ -11,7 +11,7 @@ QStringList buildSandboxArgv(const SandboxSpec &spec)
+          << QStringLiteral("--unshare-pid") << QStringLiteral("--die-with-parent");
+
+     // The host root stays visible, but /dev is rebuilt from scratch so only the devices bound below exist
+-    // (no /dev/uinput, no hidraw, no other players' input nodes - including ones that hotplug later).
++    // Other players' devices stay outside, including ones that hotplug later.
+     argv << QStringLiteral("--dev-bind") << QStringLiteral("/") << QStringLiteral("/") << QStringLiteral("--dev")
+          << QStringLiteral("/dev") << QStringLiteral("--tmpfs") << QStringLiteral("/dev/shm");
+
+@@ -22,6 +22,9 @@ QStringList buildSandboxArgv(const SandboxSpec &spec)
+     for (const QString &node : spec.extraDeviceNodes) {
+         argv << QStringLiteral("--dev-bind") << node << node;
+     }
++    if (spec.steamInput) {
++        argv << QStringLiteral("--dev-bind") << QStringLiteral("/dev/uinput") << QStringLiteral("/dev/uinput");
++    }
+
+     argv << QStringLiteral("--dir") << QStringLiteral("/dev/input");
+     if (!spec.padNode.isEmpty()) {
+diff --git a/src/core/SandboxCommand.h b/src/core/SandboxCommand.h
+index ccc2e86..cc566b9 100644
+--- a/src/core/SandboxCommand.h
++++ b/src/core/SandboxCommand.h
+@@ -30,6 +30,7 @@ struct SandboxSpec {
+     QString playerHome; ///< host directory bound at @c home; empty = the desktop user's own home (no bind)
+     QString runtimeDir; ///< XDG_RUNTIME_DIR; its `bus` socket is masked
+     QString padNode; ///< the player's virtual pad (/dev/input/eventN); empty = none
++    bool steamInput = false; ///< allow this Steam instance to generate its gamepad output
+     QStringList directDevices; ///< other input event nodes passed straight through
+     QStringList extraDeviceNodes; ///< e.g. /dev/nvidia* present at launch
+     QList<SandboxMount> mounts;
+diff --git a/src/core/SessionRunner.cpp b/src/core/SessionRunner.cpp
+index 3b94abc..4d009c6 100644
+--- a/src/core/SessionRunner.cpp
++++ b/src/core/SessionRunner.cpp
+@@ -25,23 +25,138 @@
+ #include <QDBusReply>
+ #include <QDebug>
+ #include <QDir>
++#include <QFile>
+ #include <QGuiApplication>
+ #include <QMetaObject>
+ #include <QScreen>
+ #include <QScopedValueRollback>
+ #include <QSet>
+ #include <QFileInfo>
++#include <QRegularExpression>
+ #include <QTcpServer>
+
+ #include <KGlobalAccel>
+ #include <KLocalizedString>
+
+ #include <unistd.h>
++#include <linux/uinput.h>
++#include <sys/ioctl.h>
++#include <sys/stat.h>
++#include <sys/syscall.h>
+
+ #include <algorithm>
++#include <cerrno>
++#include <cstring>
+ #include <memory>
+ #include <vector>
+
++// hid-steam exposes the Puck's raw client as a sibling of the evdev HID device.
++// Pair them by the physical USB interface, which includes the Puck slot.
++static QString steamPuckHidrawNode(const QVariantMap &device)
++{
++    if (device.value(QStringLiteral("vendorId")).toString() != QLatin1String("28de")
++        || device.value(QStringLiteral("productId")).toString() != QLatin1String("1304")
++        || device.value(QStringLiteral("type")).toString() != QLatin1String("controller")) {
++        return {};
++    }
++    const QString event = device.value(QStringLiteral("path")).toString().section(QLatin1Char('/'), -1);
++    QFile name(QStringLiteral("/sys/class/input/%1/device/name").arg(event));
++    if (!name.open(QIODevice::ReadOnly) || name.readAll().trimmed() != "Wireless Steam Controller") {
++        return {};
++    }
++    const QByteArray phys = device.value(QStringLiteral("physPath")).toByteArray();
++    const QString slot = QString::fromLatin1(phys).section(QLatin1Char('/'), -1);
++    if (slot != QLatin1String("input2") && slot != QLatin1String("input3")
++        && slot != QLatin1String("input4") && slot != QLatin1String("input5")) {
++        return {};
++    }
++
++    const QDir hidraw(QStringLiteral("/sys/class/hidraw"));
++    QString result;
++    for (const QString &entry : hidraw.entryList({QStringLiteral("hidraw*")}, QDir::Dirs)) {
++        QFile uevent(hidraw.filePath(entry + QStringLiteral("/device/uevent")));
++        if (!uevent.open(QIODevice::ReadOnly)) {
++            continue;
++        }
++        const auto properties = uevent.readAll().split('\n');
++        if (!properties.contains("HID_ID=0003:000028DE:00001304") || !properties.contains("HID_PHYS=" + phys)) {
++            continue;
++        }
++        const QString node = QStringLiteral("/dev/") + entry;
++        if (!result.isEmpty() || ::access(QFile::encodeName(node).constData(), R_OK | W_OK) != 0) {
++            return {};
++        }
++        result = node;
++    }
++    return result;
++}
++
++static qint64 parentProcess(qint64 pid)
++{
++    QFile stat(QStringLiteral("/proc/%1/stat").arg(pid));
++    if (!stat.open(QIODevice::ReadOnly)) {
++        return 0;
++    }
++    const QByteArray line = stat.readAll();
++    const qsizetype commandEnd = line.lastIndexOf(')');
++    return commandEnd < 0 ? 0 : line.sliced(commandEnd + 2).split(' ').value(1).toLongLong();
++}
++
++static QList<qint64> steamClientPids()
++{
++    QList<qint64> pids;
++    const QDir proc(QStringLiteral("/proc"));
++    for (const QString &entry : proc.entryList({QStringLiteral("[0-9]*")}, QDir::Dirs)) {
++        const QString processDir = proc.filePath(entry);
++        QFile comm(processDir + QStringLiteral("/comm"));
++        if (comm.open(QIODevice::ReadOnly) && comm.readAll().trimmed() == "steam"
++            && QFileInfo(processDir).ownerId() == ::geteuid()) {
++            pids.append(entry.toLongLong());
++        }
++    }
++    return pids;
++}
++
++// A global udev event does not identify which Steam instance created a pad.
++// Resolve it from a uinput descriptor held by that instance instead.
++static QMap<QString, QString> steamInputOutputs(const QString &processDir, int pidfd, dev_t uinputDevice,
++                                                bool &accessDenied)
++{
++    static const QRegularExpression inputName(QStringLiteral("^input[0-9]+$"));
++    QMap<QString, QString> outputs;
++    const QDir fds(processDir + QStringLiteral("/fd"));
++    for (const QString &entry : fds.entryList(QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot)) {
++        if (QFileInfo(fds.filePath(entry)).symLinkTarget() != QStringLiteral("/dev/uinput")) {
++            continue;
++        }
++        const int fd = static_cast<int>(::syscall(SYS_pidfd_getfd, pidfd, entry.toInt(), 0));
++        if (fd < 0) {
++            accessDenied |= errno == EPERM || errno == EACCES;
++            continue;
++        }
++        struct stat info;
++        char name[64] = {};
++        const bool valid = ::fstat(fd, &info) == 0 && S_ISCHR(info.st_mode) && info.st_rdev == uinputDevice
++            && ::ioctl(fd, UI_GET_SYSNAME(sizeof(name)), name) >= 0;
++        ::close(fd);
++        const QString sysname = QString::fromLatin1(name, strnlen(name, sizeof(name)));
++        if (!valid || !inputName.match(sysname).hasMatch()) {
++            continue;
++        }
++        const QDir device(QStringLiteral("/sys/devices/virtual/input/") + sysname);
++        QFile vendor(device.filePath(QStringLiteral("id/vendor")));
++        QFile product(device.filePath(QStringLiteral("id/product")));
++        if (!vendor.open(QIODevice::ReadOnly) || vendor.readAll().trimmed() != "28de"
++            || !product.open(QIODevice::ReadOnly) || product.readAll().trimmed() != "11ff") {
++            continue;
++        }
++        for (const QString &event : device.entryList({QStringLiteral("event*")}, QDir::Dirs)) {
++            outputs.insert(QStringLiteral("/dev/input/") + event, sysname);
++        }
++    }
++    return outputs;
++}
++
+ // Players share the host's network, and Steam's client IPC listens on one fixed
+ // loopback port (57343). Without an override each player's games would reach the
+ // desktop's (or another player's) Steam and crash in steamclient.so. Each
+@@ -69,6 +184,8 @@ SessionRunner::SessionRunner(QObject *parent)
+ {
+     setStatus(QStringLiteral("Ready"));
+     setupGlobalShortcut();
++    m_steamInputPoll.setInterval(500);
++    connect(&m_steamInputPoll, &QTimer::timeout, this, &SessionRunner::refreshSteamInputOutputs);
+
+
+
+@@ -709,6 +826,7 @@ void SessionRunner::continueStartAfterDisplays()
+             config[QStringLiteral("padNode")] = forwarder->node();
+         }
+         config[QStringLiteral("directDevices")] = m_directDevices.value(i);
++        config[QStringLiteral("steamControllerNodes")] = m_nativeSteamControllers.value(i).values();
+         m_pendingInstanceConfigs.append(config);
+     }
+
+@@ -997,7 +1115,53 @@ bool SessionRunner::startPadForwarders()
+     }
+
+     const auto &profile = activeProfile();
++    // Before launching any player sandboxes, an existing Steam client can own
++    // the Puck slots. Keep evdev routing in that case, including Gaming Mode.
++    const bool nativeSteam = !HostProcess::runningInFlatpak() && steamClientPids().isEmpty();
++    QSet<QString> claimedHidraw;
+     for (int i = 0; i < profile.instances.size(); ++i) {
++        QStringList direct;
++        QStringList padSources;
++        if (m_deviceManager) {
++            const QList<int> events = m_deviceManager->getDevicesForInstance(i);
++            const auto &instance = profile.instances.at(i);
++            QMap<QString, QString> nativeControllers;
++            if (nativeSteam && !instance.streamToMoonlight && instance.display != InstanceConfig::DisplayVirtual
++                && m_startingSnapshot.presets.at(i).launcherId == QLatin1String("steam")) {
++                for (int eventNumber : events) {
++                    const QVariantMap device = m_deviceManager->getDevice(eventNumber);
++                    const QString node = steamPuckHidrawNode(device);
++                    if (node.isEmpty()) {
++                        continue;
++                    }
++                    if (claimedHidraw.contains(node)) {
++                        Q_EMIT errorOccurred(QStringLiteral("Steam Controller endpoint is assigned more than once: %1").arg(node));
++                        return false;
++                    }
++                    claimedHidraw.insert(node);
++                    nativeControllers.insert(device.value(QStringLiteral("physPath")).toString(), node);
++                    qCInfo(couchplayCore) << "Passing Steam Controller" << node << "to player" << i + 1;
++                }
++            }
++            for (int eventNumber : events) {
++                const QVariantMap device = m_deviceManager->getDevice(eventNumber);
++                const QString path = device.value(QStringLiteral("path")).toString();
++                if (!path.startsWith(QLatin1String("/dev/input/event"))
++                    || nativeControllers.contains(device.value(QStringLiteral("physPath")).toString())) {
++                    continue;
++                }
++                if (device.value(QStringLiteral("type")).toString() == QLatin1String("controller")) {
++                    padSources.append(path);
++                } else {
++                    direct.append(path);
++                }
++            }
++            m_directDevices.insert(i, direct);
++            if (!nativeControllers.isEmpty()) {
++                m_nativeSteamControllers.insert(i, nativeControllers);
++            }
++        }
++
+         // Every instance gets a pad, including streaming ones, so a Moonlight client that joins late has a node.
+         auto *forwarder = new PadForwarder(this);
+         m_padForwarders.insert(i, forwarder);
+@@ -1006,40 +1170,90 @@ bool SessionRunner::startPadForwarders()
+         connect(forwarder, &PadForwarder::sourceLost, this, [i](const QString &path) {
+             qCDebug(couchplayCore) << "Pad source lost for instance" << i << path;
+         });
+-        if (!forwarder->start(i)) {
++        if (!forwarder->start(i, 5000, m_nativeSteamControllers.contains(i))) {
+             return false;
+         }
+
+-        if (!m_deviceManager) {
+-            continue;
++        for (const QString &path : padSources) {
++            forwarder->attach(path);
+         }
+-        QStringList direct;
+-        const QList<int> events = m_deviceManager->getDevicesForInstance(i);
+-        for (int eventNumber : events) {
+-            const QVariantMap device = m_deviceManager->getDevice(eventNumber);
+-            const QString path = device.value(QStringLiteral("path")).toString();
+-            if (!path.startsWith(QLatin1String("/dev/input/event"))) {
++    }
++    if (!m_nativeSteamControllers.isEmpty()) {
++        m_steamInputPoll.start();
++    }
++    return true;
++}
++
++void SessionRunner::refreshSteamInputOutputs()
++{
++    QMap<qint64, int> sandboxes;
++    for (const auto *instance : std::as_const(m_instances)) {
++        if (instance->pid() > 0 && m_nativeSteamControllers.contains(instance->index())) {
++            sandboxes.insert(instance->pid(), instance->index());
++        }
++    }
++
++    QMap<int, QMap<QString, QString>> outputs;
++    bool accessDenied = false;
++    struct stat uinput;
++    if (!sandboxes.isEmpty() && ::stat("/dev/uinput", &uinput) == 0) {
++        for (qint64 pid : steamClientPids()) {
++            const QString processDir = QStringLiteral("/proc/%1").arg(pid);
++            const int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, static_cast<pid_t>(pid), 0));
++            if (pidfd < 0) {
+                 continue;
+             }
+-            if (device.value(QStringLiteral("type")).toString() == QLatin1String("controller")) {
+-                forwarder->attach(path);
+-            } else {
+-                direct.append(path);
++            qint64 parent = parentProcess(pid);
++            while (parent > 1 && !sandboxes.contains(parent)) {
++                parent = parentProcess(parent);
++            }
++            if (sandboxes.contains(parent)) {
++                outputs[sandboxes.value(parent)].insert(steamInputOutputs(processDir, pidfd, uinput.st_rdev, accessDenied));
+             }
++            ::close(pidfd);
+         }
+-        m_directDevices.insert(i, direct);
+     }
+-    return true;
++    if (accessDenied && !m_steamInputAccessWarning) {
++        qCWarning(couchplayCore) << "Cannot access a nested Steam client's uinput descriptors";
++        m_steamInputAccessWarning = true;
++    }
++
++    for (auto it = m_nativeSteamControllers.cbegin(); it != m_nativeSteamControllers.cend(); ++it) {
++        const int player = it.key();
++        PadForwarder *forwarder = m_padForwarders.value(player);
++        if (!forwarder) {
++            continue;
++        }
++        const auto previous = m_steamInputOutputs.value(player);
++        const auto current = outputs.value(player);
++        for (auto old = previous.cbegin(); old != previous.cend(); ++old) {
++            if (current.value(old.key()) != old.value()) {
++                forwarder->detach(old.key());
++            }
++        }
++        for (auto source = current.cbegin(); source != current.cend(); ++source) {
++            if (previous.value(source.key()) != source.value()) {
++                qCInfo(couchplayCore) << "Routing Steam Input" << source.key() << "to player" << player + 1;
++            }
++            // udev may not have finished setting permissions when the device first appears.
++            forwarder->attachSteamOutput(source.key(), source.value());
++        }
++    }
++    m_steamInputOutputs = std::move(outputs);
+ }
+
+ void SessionRunner::stopPadForwarders()
+ {
++    m_steamInputPoll.stop();
++    m_steamInputOutputs.clear();
++    m_steamInputAccessWarning = false;
+     for (PadForwarder *forwarder : std::as_const(m_padForwarders)) {
+         forwarder->stop();
+         forwarder->deleteLater(); // may be called from the forwarder's own chordTriggered signal
+     }
+     m_padForwarders.clear();
+     m_directDevices.clear();
++    m_nativeSteamControllers.clear();
+ }
+
+ bool SessionRunner::setupSessionResources()
+@@ -1780,6 +1994,9 @@ void SessionRunner::onDeviceReconnected(const QString &stableId, int eventNumber
+     if (device.value(QStringLiteral("type")).toString() != QLatin1String("controller")) {
+         return;
+     }
++    if (m_nativeSteamControllers.value(instanceIndex).contains(device.value(QStringLiteral("physPath")).toString())) {
++        return;
++    }
+     qCDebug(couchplayCore) << "Controller reconnected, re-attaching to its virtual pad (stableId:" << stableId << ")";
+     grantDeviceToInstance(eventNumber, instanceIndex);
+ }
+diff --git a/src/core/SessionRunner.h b/src/core/SessionRunner.h
+index 1e114bd..eba1c0f 100644
+--- a/src/core/SessionRunner.h
++++ b/src/core/SessionRunner.h
+@@ -13,6 +13,7 @@
+ #include <QRect>
+ #include <QSet>
+ #include <QString>
++#include <QTimer>
+ #include <QVariantMap>
+ #include <QVariantList>
+ #include "LaunchTypes.h"
+@@ -290,6 +291,7 @@ private:
+     void setActive(bool active);
+     const SessionProfile &activeProfile() const;
+     bool startPadForwarders();
++    void refreshSteamInputOutputs();
+     void stopPadForwarders();
+     QString missingHostToolError() const;
+     bool setupSessionResources();
+@@ -368,6 +370,10 @@ private:
+     QProcess *m_hookProcess = nullptr;
+     QMap<int, PadForwarder *> m_padForwarders; // One virtual pad per instance
+     QMap<int, QStringList> m_directDevices;    // Keyboards/mice bound straight into each sandbox
++    QMap<int, QMap<QString, QString>> m_nativeSteamControllers; // Physical slot to raw device, per player
++    QTimer m_steamInputPoll;
++    QMap<int, QMap<QString, QString>> m_steamInputOutputs; // Event node to kernel input name, per player
++    bool m_steamInputAccessWarning = false;
+     PlayerStore *m_playerStore = nullptr;
+     std::function<GamescopeInstance *(QObject *)> m_instanceFactory;
+     std::function<QString(const QString &)> m_toolFinder;
+diff --git a/tools/padfwd/couchplay-padfwd.c b/tools/padfwd/couchplay-padfwd.c
+index 00ee7fa..5c7fd26 100644
+--- a/tools/padfwd/couchplay-padfwd.c
++++ b/tools/padfwd/couchplay-padfwd.c
+@@ -14,7 +14,7 @@
+ //   error <what> ...             failure
+ //   lost <path>                  a source disconnected
+ //   chord                        BTN_START+BTN_SELECT held for 2 s
+-// Stdin commands: "attach <path>", "detach <path>"; EOF exits.
++// Stdin commands: "attach <path>", "attach-steam <path> <sysname>", "detach <path>"; EOF exits.
+
+ #define _GNU_SOURCE
+ #include <dirent.h>
+@@ -32,6 +32,8 @@
+ #include <string.h>
+ #include <sys/ioctl.h>
+ #include <sys/signalfd.h>
++#include <sys/stat.h>
++#include <sys/sysmacros.h>
+ #include <time.h>
+ #include <unistd.h>
+
+@@ -105,7 +107,7 @@ static int setup_abs(int fd, int code, int min, int max, int fuzz, int flat)
+     return ioctl(fd, UI_ABS_SETUP, &as);
+ }
+
+-static int create_device(const char *name)
++static int create_device(const char *name, int steam_input)
+ {
+     int fd = open("/dev/uinput", O_RDWR | O_NONBLOCK | O_CLOEXEC);
+     if (fd < 0) {
+@@ -139,9 +141,9 @@ static int create_device(const char *name)
+         struct uinput_setup us;
+         memset(&us, 0, sizeof(us));
+         us.id.bustype = BUS_USB;
+-        us.id.vendor = 0x045e;
+-        us.id.product = 0x028e;
+-        us.id.version = 0x0110;
++        us.id.vendor = steam_input ? 0x28de : 0x045e;
++        us.id.product = steam_input ? 0x11ff : 0x028e;
++        us.id.version = steam_input ? 1 : 0x0110;
+         us.ff_effects_max = MAX_EFFECTS;
+         snprintf(us.name, sizeof(us.name), "%s", name);
+         ok = ioctl(fd, UI_DEV_SETUP, &us) == 0 && ioctl(fd, UI_DEV_CREATE) == 0;
+@@ -284,7 +286,29 @@ static int find_source(const char *path)
+     return -1;
+ }
+
+-static void attach_source(const char *path)
++// An event minor can be reused between discovery and open(). Verify the input
++// device associated with the opened descriptor before grabbing it.
++static int matches_steam_output(int fd, const char *sysname, const char *path)
++{
++    struct stat st;
++    struct input_id id;
++    if (fstat(fd, &st) != 0 || !S_ISCHR(st.st_mode) || ioctl(fd, EVIOCGID, &id) != 0
++        || id.vendor != 0x28de || id.product != 0x11ff) {
++        return 0;
++    }
++    const char *event = strrchr(path, '/');
++    if (!event) {
++        return 0;
++    }
++    char link[64];
++    snprintf(link, sizeof(link), "/sys/dev/char/%u:%u", major(st.st_rdev), minor(st.st_rdev));
++    char actual[PATH_MAX];
++    char expected[PATH_MAX];
++    int size = snprintf(expected, sizeof(expected), "/sys/devices/virtual/input/%s%s", sysname, event);
++    return size > 0 && (size_t)size < sizeof(expected) && realpath(link, actual) && strcmp(expected, actual) == 0;
++}
++
++static void attach_source(const char *path, const char *steam_sysname)
+ {
+     if (find_source(path) >= 0) {
+         return;
+@@ -300,13 +324,21 @@ static void attach_source(const char *path)
+         fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+     }
+     if (fd < 0) {
+-        say("error attach %s %s", path, strerror(errno));
++        if (!steam_sysname) {
++            say("error attach %s %s", path, strerror(errno));
++        }
++        return;
++    }
++    if (steam_sysname && !matches_steam_output(fd, steam_sysname, path)) {
++        close(fd);
+         return;
+     }
+     if (ioctl(fd, EVIOCGRAB, 1) < 0) {
+         int err = errno;
+         close(fd);
+-        say("error attach %s %s", path, strerror(err));
++        if (!steam_sysname) {
++            say("error attach %s %s", path, strerror(err));
++        }
+         return;
+     }
+
+@@ -507,7 +539,13 @@ static void handle_command(char *line)
+         return;
+     }
+     if (strcmp(line, "attach") == 0) {
+-        attach_source(arg);
++        attach_source(arg, NULL);
++    } else if (strcmp(line, "attach-steam") == 0) {
++        char *separator = strchr(sp + 1, ' ');
++        if (separator && separator > arg) {
++            *separator = '\0';
++            attach_source(arg, separator + 1);
++        }
+     } else if (strcmp(line, "detach") == 0) {
+         detach_source(arg);
+     }
+@@ -547,9 +585,12 @@ static int pump_stdin(char *buf, size_t *len, int *overflow)
+ int main(int argc, char **argv)
+ {
+     const char *name = NULL;
++    int steam_input = 0;
+     for (int i = 1; i < argc; ++i) {
+         if (strcmp(argv[i], "--name") == 0 && i + 1 < argc) {
+             name = argv[++i];
++        } else if (strcmp(argv[i], "--steam-input") == 0) {
++            steam_input = 1;
+         } else {
+             fprintf(stderr, "usage: couchplay-padfwd --name <name>\n");
+             return 64;
+@@ -576,7 +617,7 @@ int main(int argc, char **argv)
+         return 1;
+     }
+
+-    g_uinput = create_device(name);
++    g_uinput = create_device(name, steam_input);
+     if (g_uinput < 0) {
+         return 1;
+     }

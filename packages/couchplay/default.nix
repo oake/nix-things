@@ -21,6 +21,9 @@ pkgs.stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-VITiDsqUTTbYRBnVil62S1eDBonSIOtluLrmeLf2RTo=";
   };
 
+  # Route supported Steam Controller Puck slots through nested Steam Input.
+  patches = [ ./native-steam-puck.patch ];
+
   strictDeps = true;
   nativeBuildInputs = [
     pkgs.cmake
