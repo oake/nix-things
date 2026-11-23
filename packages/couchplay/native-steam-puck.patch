@@ -134,10 +134,10 @@ index ccc2e86..cc566b9 100644
      QStringList extraDeviceNodes; ///< e.g. /dev/nvidia* present at launch
      QList<SandboxMount> mounts;
 diff --git a/src/core/SessionRunner.cpp b/src/core/SessionRunner.cpp
-index 3b94abc..43d7be0 100644
+index 3b94abc..4d009c6 100644
 --- a/src/core/SessionRunner.cpp
 +++ b/src/core/SessionRunner.cpp
-@@ -25,23 +25,123 @@
+@@ -25,23 +25,138 @@
  #include <QDBusReply>
  #include <QDebug>
  #include <QDir>
@@ -218,6 +218,21 @@ index 3b94abc..43d7be0 100644
 +    return commandEnd < 0 ? 0 : line.sliced(commandEnd + 2).split(' ').value(1).toLongLong();
 +}
 +
++static QList<qint64> steamClientPids()
++{
++    QList<qint64> pids;
++    const QDir proc(QStringLiteral("/proc"));
++    for (const QString &entry : proc.entryList({QStringLiteral("[0-9]*")}, QDir::Dirs)) {
++        const QString processDir = proc.filePath(entry);
++        QFile comm(processDir + QStringLiteral("/comm"));
++        if (comm.open(QIODevice::ReadOnly) && comm.readAll().trimmed() == "steam"
++            && QFileInfo(processDir).ownerId() == ::geteuid()) {
++            pids.append(entry.toLongLong());
++        }
++    }
++    return pids;
++}
++
 +// A global udev event does not identify which Steam instance created a pad.
 +// Resolve it from a uinput descriptor held by that instance instead.
 +static QMap<QString, QString> steamInputOutputs(const QString &processDir, int pidfd, dev_t uinputDevice,
@@ -261,7 +276,7 @@ index 3b94abc..43d7be0 100644
  // Players share the host's network, and Steam's client IPC listens on one fixed
  // loopback port (57343). Without an override each player's games would reach the
  // desktop's (or another player's) Steam and crash in steamclient.so. Each
-@@ -69,6 +169,8 @@ SessionRunner::SessionRunner(QObject *parent)
+@@ -69,6 +184,8 @@ SessionRunner::SessionRunner(QObject *parent)
  {
      setStatus(QStringLiteral("Ready"));
      setupGlobalShortcut();
@@ -270,7 +285,7 @@ index 3b94abc..43d7be0 100644
 
 
 
-@@ -709,6 +811,7 @@ void SessionRunner::continueStartAfterDisplays()
+@@ -709,6 +826,7 @@ void SessionRunner::continueStartAfterDisplays()
              config[QStringLiteral("padNode")] = forwarder->node();
          }
          config[QStringLiteral("directDevices")] = m_directDevices.value(i);
@@ -278,12 +293,13 @@ index 3b94abc..43d7be0 100644
          m_pendingInstanceConfigs.append(config);
      }
 
-@@ -997,7 +1100,52 @@ bool SessionRunner::startPadForwarders()
+@@ -997,7 +1115,53 @@ bool SessionRunner::startPadForwarders()
      }
 
      const auto &profile = activeProfile();
-+    const bool nativeSteam = !HostProcess::runningInFlatpak()
-+        && qEnvironmentVariableIntValue("COUCHPLAY_NATIVE_STEAM_CONTROLLERS") == 1;
++    // Before launching any player sandboxes, an existing Steam client can own
++    // the Puck slots. Keep evdev routing in that case, including Gaming Mode.
++    const bool nativeSteam = !HostProcess::runningInFlatpak() && steamClientPids().isEmpty();
 +    QSet<QString> claimedHidraw;
      for (int i = 0; i < profile.instances.size(); ++i) {
 +        QStringList direct;
@@ -331,7 +347,7 @@ index 3b94abc..43d7be0 100644
          // Every instance gets a pad, including streaming ones, so a Moonlight client that joins late has a node.
          auto *forwarder = new PadForwarder(this);
          m_padForwarders.insert(i, forwarder);
-@@ -1006,40 +1154,96 @@ bool SessionRunner::startPadForwarders()
+@@ -1006,40 +1170,90 @@ bool SessionRunner::startPadForwarders()
          connect(forwarder, &PadForwarder::sourceLost, this, [i](const QString &path) {
              qCDebug(couchplayCore) << "Pad source lost for instance" << i << path;
          });
@@ -371,29 +387,23 @@ index 3b94abc..43d7be0 100644
 +    bool accessDenied = false;
 +    struct stat uinput;
 +    if (!sandboxes.isEmpty() && ::stat("/dev/uinput", &uinput) == 0) {
-+        const QDir proc(QStringLiteral("/proc"));
-+        for (const QString &entry : proc.entryList({QStringLiteral("[0-9]*")}, QDir::Dirs)) {
-+            const QString processDir = proc.filePath(entry);
-+            QFile comm(processDir + QStringLiteral("/comm"));
-+            if (!comm.open(QIODevice::ReadOnly) || comm.readAll().trimmed() != "steam") {
++        for (qint64 pid : steamClientPids()) {
++            const QString processDir = QStringLiteral("/proc/%1").arg(pid);
++            const int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, static_cast<pid_t>(pid), 0));
++            if (pidfd < 0) {
                  continue;
              }
 -            if (device.value(QStringLiteral("type")).toString() == QLatin1String("controller")) {
 -                forwarder->attach(path);
 -            } else {
 -                direct.append(path);
-+            const qint64 pid = entry.toLongLong();
-+            const int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, static_cast<pid_t>(pid), 0));
-+            if (pidfd < 0) {
-+                continue;
-             }
 +            qint64 parent = parentProcess(pid);
 +            while (parent > 1 && !sandboxes.contains(parent)) {
 +                parent = parentProcess(parent);
 +            }
 +            if (sandboxes.contains(parent)) {
 +                outputs[sandboxes.value(parent)].insert(steamInputOutputs(processDir, pidfd, uinput.st_rdev, accessDenied));
-+            }
+             }
 +            ::close(pidfd);
          }
 -        m_directDevices.insert(i, direct);
@@ -443,7 +453,7 @@ index 3b94abc..43d7be0 100644
  }
 
  bool SessionRunner::setupSessionResources()
-@@ -1780,6 +1984,9 @@ void SessionRunner::onDeviceReconnected(const QString &stableId, int eventNumber
+@@ -1780,6 +1994,9 @@ void SessionRunner::onDeviceReconnected(const QString &stableId, int eventNumber
      if (device.value(QStringLiteral("type")).toString() != QLatin1String("controller")) {
          return;
      }
