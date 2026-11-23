@@ -1,8 +1,16 @@
 diff --git a/src/core/GamescopeInstance.cpp b/src/core/GamescopeInstance.cpp
-index f924b7a..7ba1a63 100644
+index f924b7a..fd451d1 100644
 --- a/src/core/GamescopeInstance.cpp
 +++ b/src/core/GamescopeInstance.cpp
-@@ -99,6 +99,8 @@ bool GamescopeInstance::start(const QVariantMap &config, int index, const QList<
+@@ -7,6 +7,7 @@
+ #include <QDateTime>
+ #include <QDir>
+ #include <QFile>
++#include <QFileInfo>
+ #include <QUuid>
+
+ #include <csignal>
+@@ -99,12 +100,25 @@ bool GamescopeInstance::start(const QVariantMap &config, int index, const QList<
      }
      spec.padNode = config.value(QStringLiteral("padNode")).toString();
      spec.directDevices = config.value(QStringLiteral("directDevices")).toStringList();
@@ -11,6 +19,23 @@ index f924b7a..7ba1a63 100644
      const QStringList nvidiaNodes =
          QDir(QStringLiteral("/dev")).entryList({QStringLiteral("nvidia*")}, QDir::System | QDir::Files);
      for (const QString &node : nvidiaNodes) {
+         spec.extraDeviceNodes << QStringLiteral("/dev/") + node;
+     }
+     spec.mounts = mounts;
++    if (config.value(QStringLiteral("launcherId")).toString() == QLatin1String("steam")) {
++        // NixOS can inject Extest from the Steam wrapper. Its Wayland pointer
++        // backend aborts on Gamescope; nested Steam can use Xwayland's XTEST.
++        const QDir store(QStringLiteral("/nix/store"));
++        for (const QString &package : store.entryList({QStringLiteral("*-extest-*")}, QDir::Dirs)) {
++            const QString library = store.filePath(package + QStringLiteral("/lib/libextest.so"));
++            if (QFileInfo(library).isFile()) {
++                spec.mounts.append({SandboxMount::RoBind, QStringLiteral("/dev/null"), library, {}, {}, {}});
++            }
++        }
++    }
+     for (const QString &entry : buildEnvironment(config)) {
+         const qsizetype equals = entry.indexOf(QLatin1Char('='));
+         if (equals > 0) {
 diff --git a/src/core/PadForwarder.cpp b/src/core/PadForwarder.cpp
 index f943c45..a9115ea 100644
 --- a/src/core/PadForwarder.cpp
