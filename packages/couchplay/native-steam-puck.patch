@@ -1,0 +1,205 @@
+diff --git a/src/core/GamescopeInstance.cpp b/src/core/GamescopeInstance.cpp
+index f924b7a..288dcbf 100644
+--- a/src/core/GamescopeInstance.cpp
++++ b/src/core/GamescopeInstance.cpp
+@@ -99,6 +99,7 @@ bool GamescopeInstance::start(const QVariantMap &config, int index, const QList<
+     }
+     spec.padNode = config.value(QStringLiteral("padNode")).toString();
+     spec.directDevices = config.value(QStringLiteral("directDevices")).toStringList();
++    spec.extraDeviceNodes = config.value(QStringLiteral("steamControllerNodes")).toStringList();
+     const QStringList nvidiaNodes =
+         QDir(QStringLiteral("/dev")).entryList({QStringLiteral("nvidia*")}, QDir::System | QDir::Files);
+     for (const QString &node : nvidiaNodes) {
+diff --git a/src/core/SandboxCommand.cpp b/src/core/SandboxCommand.cpp
+index a4cf2bd..434b7a1 100644
+--- a/src/core/SandboxCommand.cpp
++++ b/src/core/SandboxCommand.cpp
+@@ -11,7 +11,7 @@ QStringList buildSandboxArgv(const SandboxSpec &spec)
+          << QStringLiteral("--unshare-pid") << QStringLiteral("--die-with-parent");
+
+     // The host root stays visible, but /dev is rebuilt from scratch so only the devices bound below exist
+-    // (no /dev/uinput, no hidraw, no other players' input nodes - including ones that hotplug later).
++    // (no /dev/uinput and no other players' devices, including ones that hotplug later).
+     argv << QStringLiteral("--dev-bind") << QStringLiteral("/") << QStringLiteral("/") << QStringLiteral("--dev")
+          << QStringLiteral("/dev") << QStringLiteral("--tmpfs") << QStringLiteral("/dev/shm");
+
+diff --git a/src/core/SessionRunner.cpp b/src/core/SessionRunner.cpp
+index 3b94abc..61dbc56 100644
+--- a/src/core/SessionRunner.cpp
++++ b/src/core/SessionRunner.cpp
+@@ -25,6 +25,7 @@
+ #include <QDBusReply>
+ #include <QDebug>
+ #include <QDir>
++#include <QFile>
+ #include <QGuiApplication>
+ #include <QMetaObject>
+ #include <QScreen>
+@@ -42,6 +43,47 @@
+ #include <memory>
+ #include <vector>
+
++// hid-steam exposes the Puck's raw client as a sibling of the evdev HID device.
++// Pair them by the physical USB interface, which includes the Puck slot.
++static QString steamPuckHidrawNode(const QVariantMap &device)
++{
++    if (device.value(QStringLiteral("vendorId")).toString() != QLatin1String("28de")
++        || device.value(QStringLiteral("productId")).toString() != QLatin1String("1304")
++        || device.value(QStringLiteral("type")).toString() != QLatin1String("controller")) {
++        return {};
++    }
++    const QString event = device.value(QStringLiteral("path")).toString().section(QLatin1Char('/'), -1);
++    QFile name(QStringLiteral("/sys/class/input/%1/device/name").arg(event));
++    if (!name.open(QIODevice::ReadOnly) || name.readAll().trimmed() != "Wireless Steam Controller") {
++        return {};
++    }
++    const QByteArray phys = device.value(QStringLiteral("physPath")).toByteArray();
++    const QString slot = QString::fromLatin1(phys).section(QLatin1Char('/'), -1);
++    if (slot != QLatin1String("input2") && slot != QLatin1String("input3")
++        && slot != QLatin1String("input4") && slot != QLatin1String("input5")) {
++        return {};
++    }
++
++    const QDir hidraw(QStringLiteral("/sys/class/hidraw"));
++    QString result;
++    for (const QString &entry : hidraw.entryList({QStringLiteral("hidraw*")}, QDir::Dirs)) {
++        QFile uevent(hidraw.filePath(entry + QStringLiteral("/device/uevent")));
++        if (!uevent.open(QIODevice::ReadOnly)) {
++            continue;
++        }
++        const auto properties = uevent.readAll().split('\n');
++        if (!properties.contains("HID_ID=0003:000028DE:00001304") || !properties.contains("HID_PHYS=" + phys)) {
++            continue;
++        }
++        const QString node = QStringLiteral("/dev/") + entry;
++        if (!result.isEmpty() || ::access(QFile::encodeName(node).constData(), R_OK | W_OK) != 0) {
++            return {};
++        }
++        result = node;
++    }
++    return result;
++}
++
+ // Players share the host's network, and Steam's client IPC listens on one fixed
+ // loopback port (57343). Without an override each player's games would reach the
+ // desktop's (or another player's) Steam and crash in steamclient.so. Each
+@@ -709,6 +751,7 @@ void SessionRunner::continueStartAfterDisplays()
+             config[QStringLiteral("padNode")] = forwarder->node();
+         }
+         config[QStringLiteral("directDevices")] = m_directDevices.value(i);
++        config[QStringLiteral("steamControllerNodes")] = m_nativeSteamControllers.value(i).values();
+         m_pendingInstanceConfigs.append(config);
+     }
+
+@@ -997,7 +1040,54 @@ bool SessionRunner::startPadForwarders()
+     }
+
+     const auto &profile = activeProfile();
++    const bool nativeSteam = qEnvironmentVariableIntValue("COUCHPLAY_NATIVE_STEAM_CONTROLLERS") == 1;
++    QSet<QString> claimedHidraw;
+     for (int i = 0; i < profile.instances.size(); ++i) {
++        QStringList direct;
++        QStringList padSources;
++        if (m_deviceManager) {
++            const QList<int> events = m_deviceManager->getDevicesForInstance(i);
++            const auto &instance = profile.instances.at(i);
++            QMap<QString, QString> nativeControllers;
++            if (nativeSteam && !instance.streamToMoonlight && instance.display != InstanceConfig::DisplayVirtual
++                && m_startingSnapshot.presets.at(i).launcherId == QLatin1String("steam")) {
++                for (int eventNumber : events) {
++                    const QVariantMap device = m_deviceManager->getDevice(eventNumber);
++                    const QString node = steamPuckHidrawNode(device);
++                    if (node.isEmpty()) {
++                        continue;
++                    }
++                    if (claimedHidraw.contains(node)) {
++                        Q_EMIT errorOccurred(QStringLiteral("Steam Controller endpoint is assigned more than once: %1").arg(node));
++                        return false;
++                    }
++                    claimedHidraw.insert(node);
++                    nativeControllers.insert(device.value(QStringLiteral("physPath")).toString(), node);
++                    qCInfo(couchplayCore) << "Passing Steam Controller" << node << "to player" << i + 1;
++                }
++            }
++            for (int eventNumber : events) {
++                const QVariantMap device = m_deviceManager->getDevice(eventNumber);
++                const QString path = device.value(QStringLiteral("path")).toString();
++                if (!path.startsWith(QLatin1String("/dev/input/event"))
++                    || nativeControllers.contains(device.value(QStringLiteral("physPath")).toString())) {
++                    continue;
++                }
++                if (device.value(QStringLiteral("type")).toString() == QLatin1String("controller")) {
++                    padSources.append(path);
++                } else {
++                    direct.append(path);
++                }
++            }
++            m_directDevices.insert(i, direct);
++            if (!nativeControllers.isEmpty()) {
++                m_nativeSteamControllers.insert(i, nativeControllers);
++                if (padSources.isEmpty()) {
++                    continue;
++                }
++            }
++        }
++
+         // Every instance gets a pad, including streaming ones, so a Moonlight client that joins late has a node.
+         auto *forwarder = new PadForwarder(this);
+         m_padForwarders.insert(i, forwarder);
+@@ -1010,24 +1100,9 @@ bool SessionRunner::startPadForwarders()
+             return false;
+         }
+
+-        if (!m_deviceManager) {
+-            continue;
++        for (const QString &path : padSources) {
++            forwarder->attach(path);
+         }
+-        QStringList direct;
+-        const QList<int> events = m_deviceManager->getDevicesForInstance(i);
+-        for (int eventNumber : events) {
+-            const QVariantMap device = m_deviceManager->getDevice(eventNumber);
+-            const QString path = device.value(QStringLiteral("path")).toString();
+-            if (!path.startsWith(QLatin1String("/dev/input/event"))) {
+-                continue;
+-            }
+-            if (device.value(QStringLiteral("type")).toString() == QLatin1String("controller")) {
+-                forwarder->attach(path);
+-            } else {
+-                direct.append(path);
+-            }
+-        }
+-        m_directDevices.insert(i, direct);
+     }
+     return true;
+ }
+@@ -1040,6 +1115,7 @@ void SessionRunner::stopPadForwarders()
+     }
+     m_padForwarders.clear();
+     m_directDevices.clear();
++    m_nativeSteamControllers.clear();
+ }
+
+ bool SessionRunner::setupSessionResources()
+@@ -1780,6 +1856,9 @@ void SessionRunner::onDeviceReconnected(const QString &stableId, int eventNumber
+     if (device.value(QStringLiteral("type")).toString() != QLatin1String("controller")) {
+         return;
+     }
++    if (m_nativeSteamControllers.value(instanceIndex).contains(device.value(QStringLiteral("physPath")).toString())) {
++        return;
++    }
+     qCDebug(couchplayCore) << "Controller reconnected, re-attaching to its virtual pad (stableId:" << stableId << ")";
+     grantDeviceToInstance(eventNumber, instanceIndex);
+ }
+diff --git a/src/core/SessionRunner.h b/src/core/SessionRunner.h
+index 1e114bd..712b37b 100644
+--- a/src/core/SessionRunner.h
++++ b/src/core/SessionRunner.h
+@@ -368,6 +368,7 @@ private:
+     QProcess *m_hookProcess = nullptr;
+     QMap<int, PadForwarder *> m_padForwarders; // One virtual pad per instance
+     QMap<int, QStringList> m_directDevices;    // Keyboards/mice bound straight into each sandbox
++    QMap<int, QMap<QString, QString>> m_nativeSteamControllers; // Physical slot to raw device, per player
+     PlayerStore *m_playerStore = nullptr;
+     std::function<GamescopeInstance *(QObject *)> m_instanceFactory;
+     std::function<QString(const QString &)> m_toolFinder;

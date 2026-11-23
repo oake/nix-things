@@ -21,6 +21,9 @@ pkgs.stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-VITiDsqUTTbYRBnVil62S1eDBonSIOtluLrmeLf2RTo=";
   };
 
+  # Opt-in Steam Controller Puck detection via COUCHPLAY_NATIVE_STEAM_CONTROLLERS=1.
+  patches = [ ./native-steam-puck.patch ];
+
   strictDeps = true;
   nativeBuildInputs = [
     pkgs.cmake
