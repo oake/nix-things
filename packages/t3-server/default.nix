@@ -11,7 +11,7 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   inherit pname;
-  version = "0.1.11";
+  version = "0.1.12";
   strictDeps = true;
   __structuredAttrs = true;
 
@@ -19,7 +19,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "pingdotgg";
     repo = "t3code";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-oI8gyTWFgtTmVK+0cVQaEcfO8EzxUUOW5s8JFG/z/U8=";
+    hash = "sha256-BeeKQGuTSeOejhzIFzpFLhVjuVRIc7eToWzGrHGNJqc=";
   };
 
   postPatch = ''
@@ -72,7 +72,7 @@ stdenv.mkDerivation (finalAttrs: {
       pnpmWorkspaces
       ;
     fetcherVersion = 5;
-    hash = "sha256-YzDGA+eBAkAbbKGkfmWploOb7F3MH3DVsvlA1wMzXUs=";
+    hash = "sha256-XgG3MWi1cc2jPPM3qMiM6WrAEFPsMQPm9JGzyvUX56M=";
   };
 
   buildPhase = ''
@@ -139,7 +139,7 @@ stdenv.mkDerivation (finalAttrs: {
     pname = "${pname}-resource-monitor";
     inherit (finalAttrs) version src;
     sourceRoot = "${finalAttrs.src.name}/native/resource-monitor";
-    cargoHash = "sha256-5cmG2daM1bVOA23gjjoalbx0fEL1hmqV6WZov0sUZp8=";
+    cargoHash = "sha256-deTy3FFcOwhxZnEbWDXFGVFFoKUex434ADJQtchVzbs=";
     meta.mainProgram = "t3-resource-monitor";
   };
 
