@@ -21,15 +21,15 @@ in
 # Adapted from https://github.com/KasielH/partydeck-nix/blob/9a0577d37bcc17e179fdc259ad84d9c1020480d9/flake.nix
 pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   inherit pname;
-  version = "0.8.7-e";
+  version = "0.8.7-f";
 
   src = pkgs.fetchFromGitHub {
     owner = "partydeck";
     repo = "partydeck";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-P/MwImkwd5JKr9z7c++64Mbxz+8fN64qMUOI+/tqvuc=";
+    hash = "sha256-RlQuk6N/wvCrkvjwvGXCrLHkrcXqLroxRMYJKKeMZGM=";
   };
-  cargoHash = "sha256-Nmwi8FfNAC+C1oJUCX5sYHhWU+GsMsPoOKb4p8Jvw6M=";
+  cargoHash = "sha256-3tDMZ/Qw2OgoI3Ycj4jvrTyk2HBNP7/5Gq5TXTTqnKY=";
 
   strictDeps = true;
   nativeBuildInputs = with pkgs; [
